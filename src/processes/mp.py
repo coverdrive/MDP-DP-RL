@@ -1,5 +1,5 @@
 from typing import Mapping, TypeVar, Set, Generic, Sequence
-from mdp.mp_funcs import get_all_states, verify_transitions
+from processes.mp_funcs import get_all_states, verify_mp
 import numpy as np
 
 S = TypeVar('S')
@@ -12,9 +12,9 @@ class MP(Generic[S]):
         self,
         tr: Transitions,
     ) -> None:
-        if verify_transitions(tr):
-            self.transitions: Transitions = tr
+        if verify_mp(tr):
             self.all_states: Sequence[S] = list(get_all_states(tr))
+            self.transitions: Transitions = tr
             self.trans_matrix: np.ndarray = self.get_trans_matrix()
         else:
             raise ValueError

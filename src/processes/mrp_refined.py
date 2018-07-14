@@ -1,6 +1,6 @@
-from typing import Mapping, TypeVar, Set, Tuple
-from mdp.mrp import MRP
-from utils.gen_utils import zip_dict_of_tuple, is_approx_eq
+from typing import Mapping, TypeVar, Tuple
+from processes.mrp import MRP
+from utils.gen_utils import zip_dict_of_tuple
 import numpy as np
 
 
