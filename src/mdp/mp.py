@@ -1,24 +1,35 @@
-from typing import Mapping, TypeVar
+from typing import Mapping, TypeVar, Set, Generic, Sequence
 from mdp.mp_funcs import get_all_states, verify_transitions
+import numpy as np
+
+S = TypeVar('S')
+Transitions = Mapping[S, Mapping[S, float]]
 
 
-class MP(object):
-
-    S = TypeVar('S')
+class MP(Generic[S]):
 
     def __init__(
         self,
-        tr: Mapping[S, Mapping[S, float]],
+        tr: Transitions,
     ) -> None:
         if verify_transitions(tr):
-            self.transitions = tr
-            self.all_states = get_all_states(tr)
+            self.transitions: Transitions = tr
+            self.all_states: Sequence[S] = list(get_all_states(tr))
+            self.trans_matrix: np.ndarray = self.get_trans_matrix()
         else:
             raise ValueError
 
-    def get_terminal_states(self):
+    def get_sink_states(self) -> Set[S]:
         return {k for k, v in self.transitions.items()
                 if len(v) == 1 and k in v.keys()}
+
+    def get_trans_matrix(self) -> np.ndarray:
+        n = len(self.all_states)
+        m = np.zeros((n, n))
+        for i in range(n):
+            for s, d in self.transitions[self.all_states[i]].items():
+                m[i, self.all_states.index(s)] = d
+        return m
 
 
 if __name__ == '__main__':
@@ -29,4 +40,6 @@ if __name__ == '__main__':
     }
     mp = MP(transitions)
     print(mp.transitions)
-    print(mp.get_terminal_states())
+    print(mp.all_states)
+    print(mp.trans_matrix)
+    print(mp.get_sink_states())
