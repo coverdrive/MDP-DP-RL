@@ -13,11 +13,15 @@ class MDPRefined(MDP):
 
     def __init__(
         self,
-        info: Type1
+        info: Type1,
+        gamma: float = 1.
     ) -> None:
         d1, d2, d3 = MDPRefined.split_info(info)
-        super().__init__({s: {a: (v1, d3[s][a]) for a, v1 in v.items()}
-                          for s, v in d1.items()})
+        super().__init__(
+            {s: {a: (v1, d3[s][a]) for a, v1 in v.items()}
+             for s, v in d1.items()},
+            gamma
+        )
         self.rewards_refined: Type2 = d2
 
     @staticmethod
@@ -48,7 +52,7 @@ if __name__ == '__main__':
             'b': {3: (1.0, 0.0)}
         }
     }
-    mdp_refined = MDPRefined(data)
+    mdp_refined = MDPRefined(data, 0.95)
     print(mdp_refined.all_states)
     print(mdp_refined.transitions)
     print(mdp_refined.rewards)

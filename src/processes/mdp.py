@@ -11,6 +11,7 @@ class MDP(Generic[S, A]):
     def __init__(
         self,
         info: Mapping[S, Mapping[A, Tuple[Mapping[S, float], float]]],
+        gamma: float = 1.
     ) -> None:
         if verify_mdp(info):
             d = {k: zip_dict_of_tuple(v) for k, v in info.items()}
@@ -20,6 +21,7 @@ class MDP(Generic[S, A]):
                 {s: {a: get_lean_transitions(v1) for a, v1 in v.items()}
                  for s, v in d1.items()}
             self.rewards: Mapping[S, Mapping[A, float]] = d2
+            self.gamma = gamma
         else:
             raise ValueError
 
@@ -50,7 +52,7 @@ if __name__ == '__main__':
             'b': ({3: 1.0}, 0.0)
         }
     }
-    mdp = MDP(data)
+    mdp = MDP(data, 0.95)
     print(mdp.all_states)
     print(mdp.transitions)
     print(mdp.rewards)
