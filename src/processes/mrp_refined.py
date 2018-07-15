@@ -3,21 +3,21 @@ from processes.mrp import MRP
 from utils.gen_utils import zip_dict_of_tuple
 import numpy as np
 
+S = TypeVar('S')
+Type1 = Mapping[S, Mapping[S, Tuple[float, float]]]
+Type2 = Mapping[S, Mapping[S, float]]
+
 
 class MRPRefined(MRP):
-
-    S = TypeVar('S')
-    Type1 = Mapping[S, Mapping[S, Tuple[float, float]]]
-    Type2 = Mapping[S, Mapping[S, float]]
 
     def __init__(
         self,
         info: Type1
-    ):
+    ) -> None:
         d1, d2, d3 = MRPRefined.split_info(info)
         super().__init__({k: (v, d3[k]) for k, v in d1.items()})
-        self.rewards_refined = d2
-        self.rewards_refined_matrix = self.get_rewards_refined_matrix()
+        self.rewards_refined: Type2 = d2
+        self.rewards_refined_matrix: np.ndarray = self.get_rewards_refined_matrix()
 
     @staticmethod
     def split_info(info: Type1) -> Tuple[Type2, Type2, Mapping[S, float]]:

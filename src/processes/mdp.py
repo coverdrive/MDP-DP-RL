@@ -1,6 +1,6 @@
 from typing import Mapping, TypeVar, Set, Tuple, Generic
 from utils.gen_utils import zip_dict_of_tuple, is_approx_eq
-from processes.mp_funcs import get_all_states, verify_mdp
+from processes.mp_funcs import get_all_states, verify_mdp, get_lean_transitions
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -16,7 +16,9 @@ class MDP(Generic[S, A]):
             d = {k: zip_dict_of_tuple(v) for k, v in info.items()}
             d1, d2 = zip_dict_of_tuple(d)
             self.all_states: Set[S] = get_all_states(info)
-            self.transitions: Mapping[S, Mapping[A, Mapping[S, float]]] = d1
+            self.transitions: Mapping[S, Mapping[A, Mapping[S, float]]] =\
+                {s: {a: get_lean_transitions(v1) for a, v1 in v.items()}
+                 for s, v in d1.items()}
             self.rewards: Mapping[S, Mapping[A, float]] = d2
         else:
             raise ValueError

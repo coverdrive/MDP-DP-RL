@@ -3,9 +3,10 @@ from processes.mp import MP
 from utils.gen_utils import zip_dict_of_tuple, is_approx_eq
 import numpy as np
 
+S = TypeVar('S')
+
 
 class MRP(MP):
-    S = TypeVar('S')
 
     def __init__(
         self,
