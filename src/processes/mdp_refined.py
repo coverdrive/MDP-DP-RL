@@ -2,6 +2,9 @@ from typing import Mapping, TypeVar, Tuple
 from utils.gen_utils import zip_dict_of_tuple
 from processes.mdp import MDP
 import numpy as np
+from processes.policy import Policy
+from processes.mp_funcs import mdp_rep_to_mrp_rep1
+from processes.mrp_refined import MRPRefined
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -35,6 +38,15 @@ class MDPRefined(MDP):
                   for a, v1 in v.items()} for s, v in info.items()}
         return d1, d2, d3
 
+    def get_mrp_refined(self, pol: Policy) -> MRPRefined:
+        tr = mdp_rep_to_mrp_rep1(self.transitions, pol.policy_data)
+        rew_ref = mdp_rep_to_mrp_rep1(
+            self.rewards_refined,
+            pol.policy_data
+        )
+        return MRPRefined({s: {s1: (v1, rew_ref[s][s1]) for s1, v1 in v.items()}
+                           for s, v in tr.items()})
+
 
 if __name__ == '__main__':
     data = {
@@ -52,10 +64,35 @@ if __name__ == '__main__':
             'b': {3: (1.0, 0.0)}
         }
     }
-    mdp_refined = MDPRefined(data, 0.95)
-    print(mdp_refined.all_states)
-    print(mdp_refined.transitions)
-    print(mdp_refined.rewards)
-    print(mdp_refined.rewards_refined)
-    terminal = mdp_refined.get_terminal_states()
+    mdp_refined_obj = MDPRefined(data, 0.95)
+    print(mdp_refined_obj.all_states)
+    print(mdp_refined_obj.transitions)
+    print(mdp_refined_obj.rewards)
+    print(mdp_refined_obj.rewards_refined)
+    terminal = mdp_refined_obj.get_terminal_states()
     print(terminal)
+    mdp_refined_data = {
+        1: {
+            'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
+            'b': {2: (0.3, -0.5), 3: (0.7, 2.6)},
+            'c': {1: (0.2, 4.8), 2: (0.4, -4.9), 3: (0.4, 0.0)}
+        },
+        2: {
+            'a': {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
+            'c': {1: (0.2, 4.8), 2: (0.4, 9.2), 3: (0.4, -8.2)}
+        },
+        3: {
+            'a': {3: (1.0, 0.0)},
+            'b': {3: (1.0, 0.0)}
+        }
+    }
+    mdp2_obj = MDPRefined(mdp_refined_data)
+    policy_data = {
+        1: {'a': 0.4, 'b': 0.6},
+        2: {'a': 0.7, 'c': 0.3},
+        3: {'b': 1.0}
+    }
+    pol_obj = Policy(policy_data)
+    mrp_refined_obj = mdp2_obj.get_mrp_refined(pol_obj)
+    print(mrp_refined_obj.transitions)
+    print(mrp_refined_obj.rewards_refined)

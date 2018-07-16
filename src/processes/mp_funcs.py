@@ -37,17 +37,17 @@ def verify_transitions(
 
 @memoize
 def verify_mp(mp_data: Type1) -> bool:
-    all_states = get_all_states(mp_data)
+    all_st = get_all_states(mp_data)
     val_seq = list(mp_data.values())
-    return verify_transitions(all_states, val_seq)
+    return verify_transitions(all_st, val_seq)
 
 
 @memoize
 def verify_mdp(mdp_data: Type2) -> bool:
-    all_states = get_all_states(mdp_data)
+    all_st = get_all_states(mdp_data)
     check_actions = all(len(v) > 0 for _, v in mdp_data.items())
     val_seq = [v2 for _, v1 in mdp_data.items() for _, (v2, _) in v1.items()]
-    return verify_transitions(all_states, val_seq) and check_actions
+    return verify_transitions(all_st, val_seq) and check_actions
 
 
 def mdp_rep_to_mrp_rep1(
