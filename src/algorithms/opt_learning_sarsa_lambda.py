@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping, Tuple
-from algorithms.opt_learning_td0_base import OptLearningTD0Base
+from algorithms.opt_learning_tdl_base import OptLearningTDLBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
@@ -13,7 +13,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptLearningQLearning(OptLearningTD0Base):
+class OptLearningSARSALambda(OptLearningTDLBase):
 
     def __init__(
         self,
@@ -21,10 +21,18 @@ class OptLearningQLearning(OptLearningTD0Base):
         softmax: bool,
         epsilon: float,
         alpha: float,
+        lambd: float,
         num_episodes: int
     ) -> None:
 
-        super().__init__(mdp_ref_obj, softmax, epsilon, alpha, num_episodes)
+        super().__init__(
+            mdp_ref_obj,
+            softmax,
+            epsilon,
+            alpha,
+            lambd,
+            num_episodes
+        )
 
     def get_optimal(self) -> Tuple[DetPolicy, VFType]:
         pol = self.get_init_policy()
@@ -36,18 +44,26 @@ class OptLearningQLearning(OptLearningTD0Base):
         max_steps = 10000
 
         while episodes < self.num_episodes:
+            et_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
             state = start_gen_f(1)[0]
+            action = get_rv_gen_func(pol.get_state_probabilities(state))(1)[0]
             steps = 0
             terminate = False
 
             while not terminate:
-                action = get_rv_gen_func(pol.get_state_probabilities(state))(1)[0]
                 next_state, reward = self.state_reward_gen_dict[state][action]()
-                qf_dict[state][action] += self.alpha *\
-                    (reward + self.gamma * max(qf_dict[next_state][a]
-                                               for a in sa_dict[next_state]) -
-                     qf_dict[state][action])
+                next_action = get_rv_gen_func(
+                    pol.get_state_probabilities(next_state)
+                )(1)[0]
+                delta = reward + self.gamma * qf_dict[next_state][next_action] - \
+                    qf_dict[state][action]
+                et_dict[state][action] += 1
+                for s, a_set in self.state_action_dict.items():
+                    for a in a_set:
+                        qf_dict[s][a] += self.alpha * delta * et_dict[s][a]
+                        et_dict[s][a] *= self.gamma * self.lambd
                 state = next_state
+                action = next_action
                 steps += 1
                 terminate = steps >= max_steps or state in self.terminal_states
 
@@ -75,18 +91,20 @@ if __name__ == '__main__':
             'b': {3: (1.0, 0.0)}
         }
     }
-    gamma_val = 1.0
+    gamma_val = 0.99
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
 
     softmax_flag = True
     epsilon_val = 0.1
     alpha_val = 0.1
+    lambda_val = 0.1
     episodes_limit = 10000
-    ql_obj = OptLearningQLearning(
+    sarsa_lambda_obj = OptLearningSARSALambda(
         mdp_ref_obj1,
         softmax_flag,
         epsilon_val,
         alpha_val,
+        lambda_val,
         episodes_limit
     )
 
@@ -97,11 +115,11 @@ if __name__ == '__main__':
     }
     pol_obj = Policy(policy_data)
 
-    this_qf_dict = ql_obj.get_act_value_func_dict(pol_obj)
+    this_qf_dict = sarsa_lambda_obj.get_act_value_func_dict(pol_obj)
     print(this_qf_dict)
-    this_vf_dict = ql_obj.get_value_func_dict(pol_obj)
+    this_vf_dict = sarsa_lambda_obj.get_value_func_dict(pol_obj)
     print(this_vf_dict)
 
-    opt_pol, opt_vf_dict = ql_obj.get_optimal()
+    opt_pol, opt_vf_dict = sarsa_lambda_obj.get_optimal()
     print(opt_pol.policy_data)
     print(opt_vf_dict)

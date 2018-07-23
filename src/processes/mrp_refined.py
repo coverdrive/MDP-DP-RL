@@ -13,7 +13,7 @@ class MRPRefined(MRP):
     def __init__(
         self,
         info: Type1,
-        gamma: float = 1.
+        gamma: float
     ) -> None:
         d1, d2, d3 = MRPRefined.split_info(info)
         super().__init__({k: (v, d3[k]) for k, v in d1.items()}, gamma)

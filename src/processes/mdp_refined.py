@@ -17,7 +17,7 @@ class MDPRefined(MDP):
     def __init__(
         self,
         info: Type1,
-        gamma: float = 1.
+        gamma: float
     ) -> None:
         d1, d2, d3 = MDPRefined.split_info(info)
         super().__init__(
@@ -44,8 +44,12 @@ class MDPRefined(MDP):
             self.rewards_refined,
             pol.policy_data
         )
-        return MRPRefined({s: {s1: (v1, rew_ref[s][s1]) for s1, v1 in v.items()}
-                           for s, v in tr.items()})
+        return MRPRefined(
+            {s: {s1: (v1, rew_ref[s][s1]) for s1, v1 in v.items()}
+             for s, v in tr.items()},
+            self.gamma
+        )
+
 
 
 if __name__ == '__main__':

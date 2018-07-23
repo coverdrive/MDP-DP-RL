@@ -78,7 +78,8 @@ if __name__ == '__main__':
             'b': {3: (1.0, 0.0)}
         }
     }
-    mdp_ref_obj1 = MDPRefined(mdp_refined_data)
+    gamma_val = 1.0
+    mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
 
     softmax_flag = True
     epsilon_val = 0.1
