@@ -30,7 +30,7 @@ class MDP(Generic[S, A]):
                  for s, v in d1.items()}
             self.rewards: Mapping[S, Mapping[A, float]] = d2
             self.gamma: float = gamma
-            self.terminal_states = self.get_terminal_states()
+            self.terminal_states: Set[S] = self.get_terminal_states()
         else:
             raise ValueError
 
@@ -53,10 +53,6 @@ class MDP(Generic[S, A]):
         tr = mdp_rep_to_mrp_rep1(self.transitions, pol.policy_data)
         rew = mdp_rep_to_mrp_rep2(self.rewards, pol.policy_data)
         return MRP({s: (v, rew[s]) for s, v in tr.items()}, self.gamma)
-
-    def get_uniform_policy(self) -> Policy:
-        return Policy({s: {a: 1./len(v) for a in v} for s, v in
-                       self.state_action_dict.items()})
 
     def get_value_func_dict(self, pol: Policy)\
             -> Mapping[S, float]:
@@ -81,7 +77,8 @@ class MDP(Generic[S, A]):
                           for s, v in q_dict.items()})
 
     def get_optimal_policy(self, tol=1e-4) -> Policy:
-        pol = self.get_uniform_policy()
+        pol = Policy({s: {a: 1. / len(v) for a in v} for s, v in
+                      self.state_action_dict.items()})
         vf = self.get_value_func_dict(pol)
         epsilon = tol * 1e4
         while epsilon >= tol:
@@ -123,7 +120,7 @@ if __name__ == '__main__':
     mdp_data = {
         1: {
             'a': ({1: 0.2, 2: 0.6, 3: 0.2}, 7.0),
-            'b': ({1: 0.6, 2: 0.3, 3: 0.1}, 5.0),
+            'b': ({1: 0.6, 2: 0.3, 3: 0.1}, -2.0),
             'c': ({1: 0.1, 2: 0.2, 3: 0.7}, 10.0)
         },
         2: {

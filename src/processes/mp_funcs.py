@@ -1,24 +1,27 @@
-from typing import Mapping, TypeVar, Set, Union, Tuple, Sequence
+from typing import Mapping, TypeVar, Set, Tuple, Sequence, Any
 from utils.gen_utils import memoize, is_approx_eq, sum_dicts
 
 S = TypeVar('S')
 A = TypeVar('A')
-Type1 = Mapping[S, Mapping[S, float]]
-Type2 = Mapping[S, Mapping[A, Tuple[Mapping[S, float], float]]]
+SSf = Mapping[S, Mapping[S, float]]
+SAf = Mapping[S, Mapping[A, float]]
+SASf = Mapping[S, Mapping[A, Mapping[S, float]]]
+SATSff = Mapping[S, Mapping[A, Tuple[Mapping[S, float], float]]]
 
 
 @memoize
-def get_all_states(d: Union[Type1, Type2]) -> Set[S]:
+def get_all_states(d: Mapping[S, Any]) -> Set[S]:
     return set(d.keys())
 
 
 @memoize
-def get_actions_for_states(mdp_data: Type2) -> Mapping[S, Set[A]]:
+def get_actions_for_states(mdp_data: Mapping[S, Mapping[A, Any]])\
+        -> Mapping[S, Set[A]]:
     return {k: set(v.keys()) for k, v in mdp_data.items()}
 
 
 @memoize
-def get_all_actions(mdp_data: Type2) -> Set[A]:
+def get_all_actions(mdp_data: Mapping[S, Mapping[A, Any]]) -> Set[A]:
     return set().union(*get_actions_for_states(mdp_data).values())
 
 
@@ -36,34 +39,39 @@ def verify_transitions(
 
 
 @memoize
-def verify_mp(mp_data: Type1) -> bool:
+def verify_mp(mp_data: SSf) -> bool:
     all_st = get_all_states(mp_data)
     val_seq = list(mp_data.values())
     return verify_transitions(all_st, val_seq)
 
 
 @memoize
-def verify_mdp(mdp_data: Type2) -> bool:
+def verify_mdp(mdp_data: SATSff) -> bool:
     all_st = get_all_states(mdp_data)
     check_actions = all(len(v) > 0 for _, v in mdp_data.items())
     val_seq = [v2 for _, v1 in mdp_data.items() for _, (v2, _) in v1.items()]
     return verify_transitions(all_st, val_seq) and check_actions
 
 
+@memoize
+def verify_policy(policy_data: SAf) -> bool:
+    return all(is_approx_eq(sum(v.values()), 1.0) for s, v in policy_data.items())
+
+
 def mdp_rep_to_mrp_rep1(
-    mdp_rep: Mapping[S, Mapping[A, Mapping[S, float]]],
-    policy_rep: Mapping[S, Mapping[A, float]]
-) -> Mapping[S, Mapping[S, float]]:
+    mdp_rep: SASf,
+    policy_rep: SAf
+) -> SSf:
     return {s: sum_dicts([{s1: policy_rep[s].get(a, 0) * v2 for s1, v2 in v1.items()}
                          for a, v1 in v.items()]) for s, v in mdp_rep.items()}
 
 
 def mdp_rep_to_mrp_rep2(
-    mdp_refined_rep: Mapping[S, Mapping[A, float]],
-    policy_rep: Mapping[S, Mapping[A, float]]
+    mdp_rep: SAf,
+    policy_rep: SAf
 ) -> Mapping[S, float]:
     return {s: sum([policy_rep[s].get(a, 0) * v1 for a, v1 in v.items()])
-            for s, v in mdp_refined_rep.items()}
+            for s, v in mdp_rep.items()}
 
 
 if __name__ == '__main__':
@@ -72,9 +80,9 @@ if __name__ == '__main__':
         2: {1: 0.4, 2: 0.2, 3: 0.4},
         3: {1: 0.6, 2: 0.4}
     }
-    all_st = get_all_states(trans)
+    all_the_st = get_all_states(trans)
     ver = verify_mp(trans)
-    print(all_st)
+    print(all_the_st)
     print(ver)
     data = {
         1: {
@@ -90,10 +98,10 @@ if __name__ == '__main__':
             'b': ({3: 1.0}, 0.0)
         }
     }
-    all_st = get_all_states(data)
+    all_the_st = get_all_states(data)
     sa = get_actions_for_states(data)
     all_act = get_all_actions(data)
-    print(all_st)
+    print(all_the_st)
     print(sa)
     print(all_act)
     ver = verify_mdp(data)
