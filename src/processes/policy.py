@@ -19,4 +19,10 @@ class Policy(Generic[S, A]):
     def get_state_action_probability(self, state: S, action: A) -> float:
         return self.get_state_probabilities(state).get(action, 0.)
 
+    def __repr__(self):
+        return self.policy_data.__repr__()
+
+    def __str__(self):
+        return self.policy_data.__str__()
+
 

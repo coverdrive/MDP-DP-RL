@@ -71,12 +71,12 @@ class MDP(Generic[S, A]):
                     for a, r in v.items()}
                 for s, v in self.rewards.items()}
 
-    def get_improved_policy(self, pol: Policy) -> Policy:
+    def get_improved_policy(self, pol: Policy) -> DetPolicy:
         q_dict = self.get_act_value_func_dict(pol)
         return DetPolicy({s: max(v.items(), key=itemgetter(1))[0]
                           for s, v in q_dict.items()})
 
-    def get_optimal_policy(self, tol=1e-4) -> Policy:
+    def get_optimal_policy(self, tol=1e-4) -> DetPolicy:
         pol = Policy({s: {a: 1. / len(v) for a in v} for s, v in
                       self.state_action_dict.items()})
         vf = self.get_value_func_dict(pol)
