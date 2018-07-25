@@ -2,6 +2,7 @@ from typing import Tuple, Sequence, NamedTuple, Set, Mapping
 from enum import Enum
 from scipy.stats import norm
 from processes.mdp_refined import MDPRefined
+from processes.det_policy import DetPolicy
 
 Node = Tuple[int, int]
 NodeSet = Set[Node]
@@ -17,6 +18,7 @@ class Move(Enum):
 
 
 class WindyGrid(NamedTuple):
+
     x_len: int
     y_len: int
     blocks: NodeSet
@@ -44,20 +46,21 @@ class WindyGrid(NamedTuple):
         return a[0] + b[0], a[1] + b[1]
 
     def is_valid_state(self, state: Node) -> bool:
-        return 0 <= state[0] < self.x_len\
-               and 0 <= state[1] < self.y_len\
+        return 0 <= state[0] < self.x_len \
+               and 0 <= state[1] < self.y_len \
                and state not in self.blocks
 
     def get_all_nt_states(self) -> NodeSet:
         return {(i, j) for i in range(self.x_len) for j in range(self.y_len)
                 if (i, j) not in set.union(self.blocks, self.terminals)}
 
-    def get_actions_and_next_states(self, state: Node)\
+    def get_actions_and_next_states(self, nt_state: Node) \
             -> Set[Tuple[Move, Node]]:
-        temp = {(a.name, WindyGrid.add_tuples(state, a.value)) for a in Move}
+        temp = {(a.name, WindyGrid.add_tuples(nt_state, a.value))
+                for a in Move if a != Move.S}
         return {(a, s) for a, s in temp if self.is_valid_state(s)}
 
-    def get_state_probs_and_rewards(self, state: Node)\
+    def get_state_probs_and_rewards(self, state: Node) \
             -> Mapping[Node, Tuple[float, float]]:
         state_x, state_y = state
         barriers = set.union(
@@ -72,10 +75,10 @@ class WindyGrid(NamedTuple):
             if lower <= only_state <= upper:
                 cost = 0.
             elif only_state < lower:
-                cost = self.edge_bump_cost if lower == 0\
+                cost = self.edge_bump_cost if lower == 0 \
                     else self.block_bump_cost
             else:
-                cost = self.edge_bump_cost if upper == self.y_len - 1\
+                cost = self.edge_bump_cost if upper == self.y_len - 1 \
                     else self.block_bump_cost
             ret = {(state_x, max(lower, min(upper, only_state))):
                    (1., -(1. + cost))}
@@ -87,14 +90,14 @@ class WindyGrid(NamedTuple):
                     pr = rv.cdf(lower - state_y + 0.5)
                     pr1 = rv.cdf(lower - state_y - 0.5)
                     cost = pr1 / pr * (self.edge_bump_cost if lower == 0
-                                       else self.block_bump_cost)\
+                                       else self.block_bump_cost) \
                         if pr != 0. else 0.
                 elif y == upper:
                     pr = 1. - rv.cdf(upper - state_y - 0.5)
                     pr1 = 1. - rv.cdf(upper - state_x + 0.5)
                     cost = pr1 / pr * (self.edge_bump_cost
                                        if upper == self.y_len - 1
-                                       else self.block_bump_cost)\
+                                       else self.block_bump_cost) \
                         if pr != 0. else 0.
                 else:
                     pr = rv.cdf(y - state_y + 0.5) - rv.cdf(y - state_y - 0.5)
@@ -105,14 +108,14 @@ class WindyGrid(NamedTuple):
                    for y, p, c in temp_data}
         return ret
 
-    def get_non_terminals_dict(self)\
+    def get_non_terminals_dict(self) \
             -> Mapping[Node, Mapping[Move, Mapping[Node, Tuple[float, float]]]]:
         return {s: {a: ({s1: (1., -1.)} if s1 in self.terminals else
                         self.get_state_probs_and_rewards(s1))
                     for a, s1 in self.get_actions_and_next_states(s)}
                 for s in self.get_all_nt_states()}
 
-    def get_mdp_refined_dict(self)\
+    def get_mdp_refined_dict(self) \
             -> Mapping[Node, Mapping[Move, Mapping[Node, Tuple[float, float]]]]:
         d1 = self.get_non_terminals_dict()
         d2 = {s: {Move.S.name: {s: (1.0, 0.0)}} for s in self.terminals}
@@ -121,33 +124,58 @@ class WindyGrid(NamedTuple):
     def get_mdp_refined(self) -> MDPRefined:
         return MDPRefined(self.get_mdp_refined_dict(), gamma=1.)
 
+    def print_vf(self, vf_dict, chars: int, decimals: int) -> None:
+        display = "%%%d.%df" % (chars, decimals)
+        display1 = "%%%dd" % chars
+        display2 = "%%%dd " % 2
+        blocks_dict = {s: 'X' * chars for s in self.blocks}
+        non_blocks_dict = {s: display % -v for s, v in vf_dict.items()}
+        full_dict = {**non_blocks_dict, **blocks_dict}
+        print("   " + " ".join([display1 % j for j in range(0, self.x_len)]))
+        for i in range(self.y_len - 1, -1, -1):
+            print(display2 % i + " ".join(full_dict[(j, i)]
+                                          for j in range(0, self.x_len)))
+
+    def print_policy(self, pol: DetPolicy) -> None:
+        display1 = "%%%dd" % 2
+        display2 = "%%%dd  " % 2
+        blocks_dict = {s: 'X' for s in self.blocks}
+        full_dict = {**pol.get_state_to_action_map(), **blocks_dict}
+        print("   " + " ".join([display1 % j for j in range(0, self.x_len)]))
+        for i in range(self.y_len - 1, -1, -1):
+            print(display2 % i + "  ".join(full_dict[(j, i)]
+                                           for j in range(0, self.x_len)))
+
+    def print_wind_and_bumps(self, chars: int, decimals: int) -> None:
+        display = "%%%d.%df" % (chars, decimals)
+        print("mu " + " ".join(display % m for m, _ in self.wind))
+        print("sd " + " ".join(display % s for _, s in self.wind))
+        print("Block Bump Cost = %5.2f" % self.block_bump_cost)
+        print("Edge Bump Cost = %5.2f" % self.edge_bump_cost)
+
 
 if __name__ == '__main__':
     wg = WindyGrid(
-        x_len=4,
-        y_len=4,
-        blocks={(2, 1)},
-        terminals={(3, 2)},
-        wind=[(0.5, 0.5), (0.3, 0.8), (0.2, 1.7), (-0.6, 0.2)],
+        x_len=6,
+        y_len=9,
+        blocks={(1, 5), (2, 1), (2, 2), (2, 3), (4, 4), (4, 5), (4, 6), (4, 7)},
+        terminals={(5, 7)},
+        wind=[(0., 0.), (0., 0.), (-1.2, 0.3), (-1.7, 0.7), (0.6, 0.4), (0.5, 1.2)],
         edge_bump_cost=3.,
-        block_bump_cost=2.
+        block_bump_cost=4.
     )
     valid = wg.validate_spec()
     print(valid)
     all_nt_states = wg.get_all_nt_states()
     print(all_nt_states)
-    d = {s: wg.get_actions_and_next_states(s) for s in wg.get_all_nt_states()}
-    print(d)
-    print(d[(2, 0)])
-    print(d[(1, 2)])
-    print(d[(3, 3)])
-    print(d[(0, 1)])
-    spr = wg.get_state_probs_and_rewards((0, 2))
-    print(spr)
     mdp_refined_dict = wg.get_mdp_refined_dict()
     print(mdp_refined_dict)
     mdp_refined_obj = wg.get_mdp_refined()
     opt_pol = mdp_refined_obj.get_optimal_policy()
-    print(opt_pol)
-    vf_dict = mdp_refined_obj.get_value_func_dict(opt_pol)
-    print(vf_dict)
+    wg.print_policy(opt_pol)
+    vfd = mdp_refined_obj.get_value_func_dict(opt_pol)
+    chars_count = 5
+    decimals_count = 2
+    wg.print_vf(vfd, chars_count, decimals_count)
+    print()
+    wg.print_wind_and_bumps(chars_count, decimals_count)

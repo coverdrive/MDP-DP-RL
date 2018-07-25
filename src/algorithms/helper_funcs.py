@@ -63,12 +63,12 @@ def get_epsilon_policy_from_qf(
 ) -> Policy:
     return Policy(
         {s: {a: epsilon / len(v) +
-                (1. - epsilon
-                 if a == max(qf_dict[s].items(), key=itemgetter(1))[0]
-                 else 0.)
+             (1. - epsilon if a == max(qf_dict[s].items(), key=itemgetter(1))[0]
+              else 0.)
              for a in v}
          for s, v in qf_dict.items()}
     )
+
 
 def get_softmax_policy_from_qf(
     qf_dict: Mapping[S, Mapping[A, float]]
@@ -76,6 +76,7 @@ def get_softmax_policy_from_qf(
     sum_dict = {s: sum(np.exp(q) for q in v.values()) for s, v in qf_dict.items()}
     return Policy({s: {a: np.exp(q) / sum_dict[s] for a, q in v.items()}
                    for s, v in qf_dict.items()})
+
 
 def get_soft_policy_from_qf(
     qf_dict: Mapping[S, Mapping[A, float]],
@@ -85,13 +86,13 @@ def get_soft_policy_from_qf(
     return get_softmax_policy_from_qf(qf_dict) if softmax\
         else get_epsilon_policy_from_qf(qf_dict, epsilon)
 
+
 def get_vf_from_qf_and_policy(
     qf_dict: Mapping[S, Mapping[A, float]],
     pol: Policy
 ) -> Mapping[A, float]:
     return {s: sum(pol.get_state_action_probability(s, a) * q
-                       for a, q in v.items())
-                for s, v in qf_dict.items()}
+            for a, q in v.items()) for s, v in qf_dict.items()}
 
 
 if __name__ == '__main__':
@@ -116,7 +117,8 @@ if __name__ == '__main__':
     }
     from processes.mdp_refined import MDPRefined
 
-    mdp_ref_obj = MDPRefined(mdp_refined_data)
+    this_gamma = 0.95
+    mdp_ref_obj = MDPRefined(mdp_refined_data, this_gamma)
     rr_data = mdp_ref_obj.rewards_refined
     tr_data = mdp_ref_obj.transitions
     sr_gen_dict = get_state_reward_gen_dict(rr_data, tr_data)

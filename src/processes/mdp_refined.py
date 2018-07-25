@@ -51,7 +51,6 @@ class MDPRefined(MDP):
         )
 
 
-
 if __name__ == '__main__':
     data = {
         1: {
@@ -90,7 +89,7 @@ if __name__ == '__main__':
             'b': {3: (1.0, 0.0)}
         }
     }
-    mdp2_obj = MDPRefined(mdp_refined_data)
+    mdp2_obj = MDPRefined(mdp_refined_data, 0.97)
     policy_data = {
         1: {'a': 0.4, 'b': 0.6},
         2: {'a': 0.7, 'c': 0.3},
