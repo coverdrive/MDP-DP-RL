@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Tuple
+from typing import TypeVar, Mapping
 from algorithms.opt_learning_base import OptLearningBase
 from abc import abstractmethod
 from processes.mdp_refined import MDPRefined
@@ -21,10 +21,17 @@ class OptLearningTDLBase(OptLearningBase):
         epsilon: float,
         alpha: float,
         lambd: float,
-        num_episodes: int
+        num_episodes: int,
+        max_steps: int
     ) -> None:
 
-        super().__init__(mdp_ref_obj, softmax, epsilon, num_episodes)
+        super().__init__(
+            mdp_ref_obj,
+            softmax,
+            epsilon,
+            num_episodes,
+            max_steps
+        )
         self.alpha: float = alpha
         self.lambd: float = lambd
 
@@ -36,7 +43,6 @@ class OptLearningTDLBase(OptLearningBase):
         act_gen_dict = {s: get_rv_gen_func(pol.get_state_probabilities(s))
                         for s in self.state_action_dict.keys()}
         episodes = 0
-        max_steps = 10000
 
         while episodes < self.num_episodes:
             et_dict = {s: 0. for s in sa_dict.keys()}
@@ -54,7 +60,8 @@ class OptLearningTDLBase(OptLearningBase):
                     et_dict[s] *= self.gamma * self.lambd
                 state = next_state
                 steps += 1
-                terminate = steps >= max_steps or state in self.terminal_states
+                terminate = steps >= self.max_steps or\
+                    state in self.terminal_states
 
             episodes += 1
 
@@ -69,7 +76,6 @@ class OptLearningTDLBase(OptLearningBase):
         act_gen_dict = {s: get_rv_gen_func(pol.get_state_probabilities(s))
                         for s in self.state_action_dict.keys()}
         episodes = 0
-        max_steps = 10000
 
         while episodes < self.num_episodes:
             et_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
@@ -90,12 +96,13 @@ class OptLearningTDLBase(OptLearningBase):
                 state = next_state
                 action = next_action
                 steps += 1
-                terminate = steps >= max_steps or state in self.terminal_states
+                terminate = steps >= self.max_steps or\
+                    state in self.terminal_states
 
             episodes += 1
 
         return qf_dict
 
     @abstractmethod
-    def get_optimal(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_det_policy(self) -> DetPolicy:
         pass

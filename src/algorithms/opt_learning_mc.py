@@ -6,6 +6,7 @@ from processes.det_policy import DetPolicy
 from algorithms.helper_funcs import get_rv_gen_func, get_returns_from_rewards
 from algorithms.helper_funcs import get_soft_policy_from_qf
 from algorithms.helper_funcs import get_det_policy_from_qf
+from algorithms.helper_funcs import get_return_eval_steps
 import numpy as np
 
 S = TypeVar('S')
@@ -22,26 +23,29 @@ class OptLearningMC(OptLearningBase):
         first_visit: bool,
         softmax: bool,
         epsilon: float,
-        num_episodes: int
+        num_episodes: int,
+        max_steps: int
     ) -> None:
 
-        super().__init__(mdp_ref_obj, softmax, epsilon, num_episodes)
+        super().__init__(mdp_ref_obj, softmax, epsilon, num_episodes, max_steps)
         self.first_visit: bool = first_visit
+        self.return_eval_steps = get_return_eval_steps(
+            max_steps,
+            mdp_ref_obj.gamma,
+            epsilon
+        )
 
     def get_mc_path(
         self,
         pol: Policy,
         start_state: S,
         start_action: Optional[A] = None,
-        max_steps: Optional[int] = None
     ) -> Sequence[Tuple[S, A, float, bool]]:
 
         res = []
         next_state = start_state
         steps = 0
         terminate = False
-        if max_steps is None:
-            max_steps = 1e8
         state_occ = {s: False for s in self.state_action_dict.keys()}
         act_gen_dict = {s: get_rv_gen_func(pol.get_state_probabilities(s))
                         for s in self.state_action_dict.keys()}
@@ -54,7 +58,7 @@ class OptLearningMC(OptLearningBase):
             next_state, reward = self.state_reward_gen_dict[state][action]()
             res.append((state, action, reward, state_occ[state]))
             steps += 1
-            terminate = steps >= max_steps or state in self.terminal_states
+            terminate = steps >= self.max_steps or state in self.terminal_states
         return res
 
     def get_value_func_dict(self, pol: Policy) -> VFType:
@@ -70,18 +74,22 @@ class OptLearningMC(OptLearningBase):
             mc_path = self.get_mc_path(
                 pol,
                 start_state,
-                start_action=None,
-                max_steps=10000
+                start_action=None
             )
+
+            eval_steps = len(mc_path) if mc_path[-1][0] in self.terminal_states\
+                else self.return_eval_steps
             returns = get_returns_from_rewards(
                 np.array([x for _, _, x, _ in mc_path]),
-                self.gamma
+                self.gamma,
+                eval_steps
             )
-            for i, (s, _, _, f) in enumerate(mc_path):
+            for i, r in enumerate(returns):
+                s, _, _, f = mc_path[i]
                 if not self.first_visit or f:
                     counts_dict[s] += 1
                     c = counts_dict[s]
-                    vf_dict[s] = (vf_dict[s] * (c - 1) + returns[i]) / c
+                    vf_dict[s] = (vf_dict[s] * (c - 1) + r) / c
             episodes += 1
 
         return vf_dict
@@ -100,23 +108,26 @@ class OptLearningMC(OptLearningBase):
             mc_path = self.get_mc_path(
                 pol,
                 start_state,
-                start_action,
-                max_steps=10000
+                start_action
             )
+            eval_steps = len(mc_path) if mc_path[-1][0] in self.terminal_states \
+                else self.return_eval_steps
             returns = get_returns_from_rewards(
                 np.array([x for _, _, x, _ in mc_path]),
-                self.gamma
+                self.gamma,
+                eval_steps
             )
-            for i, (s, a, _, f) in enumerate(mc_path):
+            for i, r in enumerate(returns):
+                s, a, _, f = mc_path[i]
                 if not self.first_visit or f:
                     counts_dict[s][a] += 1
                     c = counts_dict[s][a]
-                    qf_dict[s][a] = (qf_dict[s][a] * (c - 1) + returns[i]) / c
+                    qf_dict[s][a] = (qf_dict[s][a] * (c - 1) + r) / c
             episodes += 1
 
         return qf_dict
 
-    def get_optimal(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_det_policy(self) -> DetPolicy:
         pol = self.get_init_policy()
         sa_dict = self.state_action_dict
         s_uniform_dict = {s: 1. / len(sa_dict) for s in sa_dict.keys()}
@@ -130,24 +141,25 @@ class OptLearningMC(OptLearningBase):
             mc_path = self.get_mc_path(
                 pol,
                 start_state,
-                start_action=None,
-                max_steps=10000
+                start_action=None
             )
+            eval_steps = len(mc_path) if mc_path[-1][0] in self.terminal_states \
+                else self.return_eval_steps
             returns = get_returns_from_rewards(
                 np.array([x for _, _, x, _ in mc_path]),
-                self.gamma
+                self.gamma,
+                eval_steps
             )
-            for i, (s, a, _, f) in enumerate(mc_path):
+            for i, r in enumerate(returns):
+                s, a, _, f = mc_path[i]
                 if not self.first_visit or f:
                     counts_dict[s][a] += 1
                     c = counts_dict[s][a]
-                    qf_dict[s][a] = (qf_dict[s][a] * (c - 1) + returns[i]) / c
+                    qf_dict[s][a] = (qf_dict[s][a] * (c - 1) + r) / c
             pol = get_soft_policy_from_qf(qf_dict, self.softmax, self.epsilon)
             episodes += 1
 
-        pol = get_det_policy_from_qf(qf_dict)
-        vf_dict = self.get_value_func_dict(pol)
-        return pol, vf_dict
+        return get_det_policy_from_qf(qf_dict)
 
 
 if __name__ == '__main__':
@@ -171,14 +183,16 @@ if __name__ == '__main__':
 
     first_visit_flag = True
     softmax_flag = False
-    episodes_limit = 10000
+    episodes_limit = 1000
     epsilon_val = 0.1
+    max_steps_val = 1000
     mc_obj = OptLearningMC(
         mdp_ref_obj1,
         first_visit_flag,
         softmax_flag,
         epsilon_val,
-        episodes_limit
+        episodes_limit,
+        max_steps_val
     )
 
     policy_data = {
@@ -196,6 +210,7 @@ if __name__ == '__main__':
     this_vf_dict = mc_obj.get_value_func_dict(pol_obj)
     print(this_vf_dict)
 
-    opt_pol, opt_vf_dict = mc_obj.get_optimal()
-    print(opt_pol.policy_data)
+    opt_pol = mc_obj.get_optimal_det_policy()
+    print(opt_pol)
+    opt_vf_dict = mc_obj.get_value_func_dict(opt_pol)
     print(opt_vf_dict)

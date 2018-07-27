@@ -1,5 +1,7 @@
 from typing import Mapping, TypeVar, Set, Tuple, Sequence, Any
 from utils.gen_utils import memoize, is_approx_eq, sum_dicts
+import numpy as np
+from operator import itemgetter
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -72,6 +74,25 @@ def mdp_rep_to_mrp_rep2(
 ) -> Mapping[S, float]:
     return {s: sum([policy_rep[s].get(a, 0) * v1 for a, v1 in v.items()])
             for s, v in mdp_rep.items()}
+
+
+def get_epsilon_action_probs(
+    action_value_dict: Mapping[A, float],
+    epsilon: float
+) -> Mapping[A, float]:
+    return {a: epsilon / len(action_value_dict) +
+            (1. - epsilon if a == max(
+                action_value_dict.items(),
+                key=itemgetter(1)
+            )[0] else 0.)
+            for a in action_value_dict.keys()}
+
+
+def get_softmax_action_probs(
+    action_value_dict: Mapping[A, float]
+) -> Mapping[A, float]:
+    exp_sum = sum(np.exp(q) for q in action_value_dict.values())
+    return {a: np.exp(q) / exp_sum for a, q in action_value_dict.items()}
 
 
 if __name__ == '__main__':

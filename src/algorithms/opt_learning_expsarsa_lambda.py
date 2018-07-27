@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Tuple
+from typing import TypeVar, Mapping
 from algorithms.opt_learning_tdl_base import OptLearningTDLBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
@@ -22,7 +22,8 @@ class OptLearningExpSARSALambda(OptLearningTDLBase):
         epsilon: float,
         alpha: float,
         lambd: float,
-        num_episodes: int
+        num_episodes: int,
+        max_steps: int
     ) -> None:
 
         super().__init__(
@@ -31,17 +32,17 @@ class OptLearningExpSARSALambda(OptLearningTDLBase):
             epsilon,
             alpha,
             lambd,
-            num_episodes
+            num_episodes,
+            max_steps
         )
 
-    def get_optimal(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_det_policy(self) -> DetPolicy:
         pol = self.get_init_policy()
         sa_dict = self.state_action_dict
         s_uniform_dict = {s: 1. / len(sa_dict) for s in sa_dict.keys()}
         start_gen_f = get_rv_gen_func(s_uniform_dict)
         qf_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
         episodes = 0
-        max_steps = 10000
 
         while episodes < self.num_episodes:
             state = start_gen_f(1)[0]
@@ -61,16 +62,15 @@ class OptLearningExpSARSALambda(OptLearningTDLBase):
                     for a in a_set:
                         qf_dict[s][a] += self.alpha * delta * et_dict[s][a]
                         et_dict[s][a] *= self.gamma * self.lambd
+                pol = get_soft_policy_from_qf(qf_dict, self.softmax, self.epsilon)
                 state = next_state
                 steps += 1
-                terminate = steps >= max_steps or state in self.terminal_states
+                terminate = steps >= self.max_steps or\
+                    state in self.terminal_states
 
-            pol = get_soft_policy_from_qf(qf_dict, self.softmax, self.epsilon)
             episodes += 1
 
-        pol = get_det_policy_from_qf(qf_dict)
-        vf_dict = self.get_value_func_dict(pol)
-        return pol, vf_dict
+        return get_det_policy_from_qf(qf_dict)
 
 
 if __name__ == '__main__':
@@ -96,14 +96,16 @@ if __name__ == '__main__':
     epsilon_val = 0.1
     alpha_val = 0.1
     lambda_val = 0.2
-    episodes_limit = 10000
+    episodes_limit = 1000
+    max_steps_val = 1000
     esl_obj = OptLearningExpSARSALambda(
         mdp_ref_obj1,
         softmax_flag,
         epsilon_val,
         alpha_val,
         lambda_val,
-        episodes_limit
+        episodes_limit,
+        max_steps_val
     )
 
     policy_data = {
@@ -118,6 +120,7 @@ if __name__ == '__main__':
     this_vf_dict = esl_obj.get_value_func_dict(pol_obj)
     print(this_vf_dict)
 
-    opt_pol, opt_vf_dict = esl_obj.get_optimal()
-    print(opt_pol.policy_data)
+    opt_pol = esl_obj.get_optimal_det_policy()
+    print(opt_pol)
+    opt_vf_dict = esl_obj.get_value_func_dict(opt_pol)
     print(opt_vf_dict)

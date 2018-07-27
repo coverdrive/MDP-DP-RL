@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Tuple
+from typing import TypeVar, Mapping
 from abc import ABC, abstractmethod
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
@@ -24,6 +24,6 @@ class OptBase(ABC):
         pass
 
     @abstractmethod
-    def get_optimal(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_det_policy(self) -> DetPolicy:
         pass
 

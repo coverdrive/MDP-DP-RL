@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Tuple
+from typing import TypeVar, Mapping
 from abc import abstractmethod
 from algorithms.opt_base import OptBase
 from processes.policy import Policy
@@ -37,7 +37,7 @@ class OptPlanningBase(OptBase):
                     mo.transitions[s][a].items()) for a, r in v.items()}
                 for s, v in mo.rewards.items()}
 
-    def get_optimal_pi(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_policy_pi(self) -> DetPolicy:
         pol = self.get_init_policy()
         vf = self.get_value_func_dict(pol)
         epsilon = self.tol * 1e4
@@ -46,9 +46,9 @@ class OptPlanningBase(OptBase):
             new_vf = self.get_value_func_dict(pol)
             epsilon = max(abs(new_vf[s] - v) for s, v in vf.items())
             vf = new_vf
-        return pol, vf
+        return pol
 
-    def get_optimal_vi(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_policy_vi(self) -> DetPolicy:
         vf = {s: 0. for s in self.mdp_obj.all_states}
         epsilon = self.tol * 1e4
         mo = self.mdp_obj
@@ -65,8 +65,8 @@ class OptPlanningBase(OptBase):
              for a, r in v.items()],
             key=itemgetter(1)
         )[0] for s, v in mo.rewards.items()})
-        return pol, vf
+        return pol
 
-    def get_optimal(self) -> Tuple[DetPolicy, VFType]:
-        return self.get_optimal_vi()
+    def get_optimal_det_policy(self) -> DetPolicy:
+        return self.get_optimal_policy_pi()
 

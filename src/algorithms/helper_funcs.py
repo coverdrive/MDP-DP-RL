@@ -5,6 +5,8 @@ from scipy.stats import rv_discrete
 import numpy as np
 from scipy.linalg import toeplitz
 from operator import itemgetter
+from processes.mp_funcs import get_epsilon_action_probs
+from processes.mp_funcs import get_softmax_action_probs
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -44,11 +46,17 @@ def get_state_reward_gen_dict(rr: Type1, tr: Type1) \
             for s, v in rr.items()}
 
 
-def get_returns_from_rewards(rewards: Sequence[float], gamma: float) \
-        -> np.ndarray:
+def get_returns_from_rewards(
+    rewards: Sequence[float],
+    gamma: float,
+    points: int
+) -> np.ndarray:
     return toeplitz(
-        np.insert(np.zeros(len(rewards) - 1), 0, 1.),
-        np.power(gamma, np.arange(len(rewards)))
+        np.insert(np.zeros(points - 1), 0, 1.),
+        np.concatenate((
+            np.power(gamma, np.arange(len(rewards) - points + 1)),
+            np.zeros(points - 1)
+        ))
     ).dot(rewards)
 
 
@@ -61,21 +69,14 @@ def get_epsilon_policy_from_qf(
     qf_dict: Mapping[S, Mapping[A, float]],
     epsilon: float
 ) -> Policy:
-    return Policy(
-        {s: {a: epsilon / len(v) +
-             (1. - epsilon if a == max(qf_dict[s].items(), key=itemgetter(1))[0]
-              else 0.)
-             for a in v}
-         for s, v in qf_dict.items()}
-    )
+    return Policy({s: get_epsilon_action_probs(v, epsilon)
+                   for s, v in qf_dict.items()})
 
 
 def get_softmax_policy_from_qf(
     qf_dict: Mapping[S, Mapping[A, float]]
 ) -> Policy:
-    sum_dict = {s: sum(np.exp(q) for q in v.values()) for s, v in qf_dict.items()}
-    return Policy({s: {a: np.exp(q) / sum_dict[s] for a, q in v.items()}
-                   for s, v in qf_dict.items()})
+    return Policy({s: get_softmax_action_probs(v) for s, v in qf_dict.items()})
 
 
 def get_soft_policy_from_qf(
@@ -93,6 +94,24 @@ def get_vf_from_qf_and_policy(
 ) -> Mapping[A, float]:
     return {s: sum(pol.get_state_action_probability(s, a) * q
             for a, q in v.items()) for s, v in qf_dict.items()}
+
+
+def get_return_eval_steps(max_steps, gamma, eps):
+    low_limit = 0.2 * max_steps
+    high_limit = max_steps - 1
+    if gamma == 0.:
+        val = high_limit
+    elif gamma == 1.:
+        val = low_limit
+    else:
+        val = min(
+            high_limit,
+            max(
+                low_limit,
+                max_steps - np.log(eps) / np.log(gamma)
+            )
+        )
+    return int(np.floor(val))
 
 
 if __name__ == '__main__':

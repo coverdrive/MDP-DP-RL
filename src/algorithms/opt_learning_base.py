@@ -22,7 +22,8 @@ class OptLearningBase(OptBase):
         mdp_ref_obj: MDPRefined,
         softmax: bool,
         epsilon: float,
-        num_episodes: int
+        num_episodes: int,
+        max_steps: int
     ) -> None:
 
         self.state_action_dict: Mapping[S, Set[A]] = mdp_ref_obj.state_action_dict
@@ -35,6 +36,7 @@ class OptLearningBase(OptBase):
         self.softmax: bool = softmax
         self.epsilon: float = epsilon
         self.num_episodes: int = num_episodes
+        self.max_steps: int = max_steps
 
     def get_init_policy(self) -> Policy:
         return get_uniform_policy(self.state_action_dict)
@@ -50,6 +52,6 @@ class OptLearningBase(OptBase):
         pass
 
     @abstractmethod
-    def get_optimal(self) -> Tuple[DetPolicy, VFType]:
+    def get_optimal_det_policy(self) -> DetPolicy:
         pass
 

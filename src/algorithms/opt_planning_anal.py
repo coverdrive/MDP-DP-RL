@@ -53,11 +53,11 @@ if __name__ == '__main__':
     print(mrp1_obj.get_value_func_vec())
     tol_val = 1e-4
     opn = OptPlanningAnal(mdp1_obj, tol_val)
-    opt_policy_pi = opn.get_optimal_pi()[0]
-    print(opt_policy_pi.policy_data)
+    opt_policy_pi = opn.get_optimal_policy_pi()
+    print(opt_policy_pi)
     opt_vf_dict_pi = opn.get_value_func_dict(opt_policy_pi)
     print(opt_vf_dict_pi)
-    opt_policy_vi = opn.get_optimal_vi()[0]
-    print(opt_policy_vi.policy_data)
+    opt_policy_vi = opn.get_optimal_policy_vi()
+    print(opt_policy_vi)
     opt_vf_dict_vi = opn.get_value_func_dict(opt_policy_vi)
     print(opt_vf_dict_vi)
