@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping
-from algorithms.opt_learning_tdl_base import OptLearningTDLBase
+from algorithms.tdlambda_base import TDLambdaBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
@@ -13,7 +13,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptLearningQLearningLambda(OptLearningTDLBase):
+class QLearningLambda(TDLambdaBase):
 
     def __init__(
         self,
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     lambda_val = 0.05
     episodes_limit = 1000
     max_steps_val = 1000
-    qll_obj = OptLearningQLearningLambda(
+    qll_obj = QLearningLambda(
         mdp_ref_obj1,
         softmax_flag,
         epsilon_val,

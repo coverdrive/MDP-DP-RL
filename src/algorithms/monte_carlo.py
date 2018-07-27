@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping, Optional, Tuple, Sequence
-from algorithms.opt_learning_base import OptLearningBase
+from algorithms.learning_base import LearningBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
@@ -15,7 +15,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptLearningMC(OptLearningBase):
+class MonteCarlo(LearningBase):
 
     def __init__(
         self,
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     episodes_limit = 1000
     epsilon_val = 0.1
     max_steps_val = 1000
-    mc_obj = OptLearningMC(
+    mc_obj = MonteCarlo(
         mdp_ref_obj1,
         first_visit_flag,
         softmax_flag,

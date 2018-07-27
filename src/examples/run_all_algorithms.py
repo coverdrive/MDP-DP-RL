@@ -1,15 +1,15 @@
 from typing import NamedTuple, Mapping, Tuple, TypeVar
 from processes.mdp_refined import MDPRefined
 from processes.det_policy import DetPolicy
-from algorithms.opt_planning_anal import OptPlanningAnal
-from algorithms.opt_planning_num import OptPlanningNum
-from algorithms.opt_learning_mc import OptLearningMC
-from algorithms.opt_learning_sarsa import OptLearningSARSA
-from algorithms.opt_learning_qlearning import OptLearningQLearning
-from algorithms.opt_learning_expsarsa import OptLearningExpSARSA
-from algorithms.opt_learning_sarsa_lambda import OptLearningSARSALambda
-from algorithms.opt_learning_qlearning_lambda import OptLearningQLearningLambda
-from algorithms.opt_learning_expsarsa_lambda import OptLearningExpSARSALambda
+from algorithms.dp_analytic import DPAnalytic
+from algorithms.dp_numeric import DPNumeric
+from algorithms.monte_carlo import MonteCarlo
+from algorithms.sarsa import SARSA
+from algorithms.qlearning import QLearning
+from algorithms.expected_sarsa import ExpectedSARSA
+from algorithms.sarsa_lambda import SARSALambda
+from algorithms.qlearning_lambda import QLearningLambda
+from algorithms.expected_sarsa_lambda import ExpectedSARSALambda
 from algorithms.opt_base import OptBase
 from itertools import groupby
 import numpy as np
@@ -32,15 +32,15 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_all_algorithms(self) -> Mapping[str, OptBase]:
         return {
-            "Planning Anal": self.get_planning_anal(),
-            "Planning Num": self.get_planning_num(),
-            "Learning MC": self.get_learning_mc(),
-            "Learning SARSA": self.get_learning_sarsa(),
-            "Learning QLearning": self.get_learning_qlearning(),
-            "Learning ExpSARSA": self.get_learning_expsarsa(),
-            "Learning SARSA Lambda": self.get_learning_sarsa_lambda(),
-            "Learning QLearning Lambda": self.get_learning_qlearning_lambda(),
-            "Learning ExpSARSA Lambda": self.get_learning_expsarsa_lambda()
+            "DP Analytic": self.get_dp_analytic(),
+            "DP Numeric": self.get_dp_numeric(),
+            "Monte Carlo": self.get_monte_carlo(),
+            "SARSA": self.get_sarsa(),
+            "QLearning": self.get_qlearning(),
+            "Expected SARSA": self.get_expected_sarsa(),
+            "SARSA Lambda": self.get_sarsa_lambda(),
+            "QLearning Lambda": self.get_qlearning_lambda(),
+            "Expected SARSA Lambda": self.get_expected_sarsa_lambda()
         }
 
     def get_all_optimal_policies(self) -> Mapping[str, DetPolicy]:
@@ -51,14 +51,14 @@ class RunAllAlgorithms(NamedTuple):
         return {s: a.get_value_func_dict(a.get_optimal_det_policy())
                 for s, a in self.get_all_algorithms().items()}
 
-    def get_planning_anal(self) -> OptPlanningAnal:
-        return OptPlanningAnal(self.mdp_refined, self.tolerance)
+    def get_dp_analytic(self) -> DPAnalytic:
+        return DPAnalytic(self.mdp_refined, self.tolerance)
 
-    def get_planning_num(self) -> OptPlanningNum:
-        return OptPlanningNum(self.mdp_refined, self.tolerance)
+    def get_dp_numeric(self) -> DPNumeric:
+        return DPNumeric(self.mdp_refined, self.tolerance)
 
-    def get_learning_mc(self) -> OptLearningMC:
-        return OptLearningMC(
+    def get_monte_carlo(self) -> MonteCarlo:
+        return MonteCarlo(
             self.mdp_refined,
             self.first_visit_mc,
             self.softmax,
@@ -67,8 +67,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_learning_sarsa(self) -> OptLearningSARSA:
-        return OptLearningSARSA(
+    def get_sarsa(self) -> SARSA:
+        return SARSA(
             self.mdp_refined,
             self.softmax,
             self.epsilon,
@@ -77,8 +77,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_learning_qlearning(self) -> OptLearningQLearning:
-        return OptLearningQLearning(
+    def get_qlearning(self) -> QLearning:
+        return QLearning(
             self.mdp_refined,
             self.softmax,
             self.epsilon,
@@ -87,8 +87,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_learning_expsarsa(self) -> OptLearningExpSARSA:
-        return OptLearningExpSARSA(
+    def get_expected_sarsa(self) -> ExpectedSARSA:
+        return ExpectedSARSA(
             self.mdp_refined,
             self.softmax,
             self.epsilon,
@@ -97,19 +97,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_learning_sarsa_lambda(self) -> OptLearningSARSALambda:
-        return OptLearningSARSALambda(
-            self.mdp_refined,
-            self.softmax,
-            self.epsilon,
-            self.alpha,
-            self.lambd,
-            self.num_episodes,
-            self.max_steps
-        )
-
-    def get_learning_qlearning_lambda(self) -> OptLearningQLearningLambda:
-        return OptLearningQLearningLambda(
+    def get_sarsa_lambda(self) -> SARSALambda:
+        return SARSALambda(
             self.mdp_refined,
             self.softmax,
             self.epsilon,
@@ -119,8 +108,19 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_learning_expsarsa_lambda(self) -> OptLearningExpSARSALambda:
-        return OptLearningExpSARSALambda(
+    def get_qlearning_lambda(self) -> QLearningLambda:
+        return QLearningLambda(
+            self.mdp_refined,
+            self.softmax,
+            self.epsilon,
+            self.alpha,
+            self.lambd,
+            self.num_episodes,
+            self.max_steps
+        )
+
+    def get_expected_sarsa_lambda(self) -> ExpectedSARSALambda:
+        return ExpectedSARSALambda(
             self.mdp_refined,
             self.softmax,
             self.epsilon,
@@ -136,13 +136,13 @@ if __name__ == '__main__':
     from examples.inv_control import InvControl
 
     ic = InvControl(
-        demand_lambda=1.2,
-        lead_time=0,
+        demand_lambda=0.5,
+        lead_time=1,
         stockout_cost=49.,
         fixed_order_cost=0.0,
         epoch_disc_factor=0.98,
-        order_limit=5,
-        space_limit=7,
+        order_limit=7,
+        space_limit=8,
         throwout_cost=30.,
         stockout_limit=5,
         stockout_limit_excess_cost=30.
@@ -151,11 +151,11 @@ if __name__ == '__main__':
     mdp_ref_obj = ic.get_mdp_refined()
     this_tolerance = 1e-4
     this_first_visit_mc = True
-    this_softmax = False
+    this_softmax = True
     this_epsilon = 0.1
     this_alpha = 0.1
-    this_lambd = 0.7
-    this_num_episodes = 5000
+    this_lambd = 0.8
+    this_num_episodes = 3000
     this_max_steps = 1000
 
     raa = RunAllAlgorithms(

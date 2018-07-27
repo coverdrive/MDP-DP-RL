@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping
-from algorithms.opt_learning_base import OptLearningBase
+from algorithms.learning_base import LearningBase
 from abc import abstractmethod
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
@@ -12,7 +12,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptLearningTDLBase(OptLearningBase):
+class TDLambdaBase(LearningBase):
 
     def __init__(
         self,

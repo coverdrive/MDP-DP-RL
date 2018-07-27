@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping
-from algorithms.opt_planning_base import OptPlanningBase
+from algorithms.planning_base import PlanningBase
 from processes.policy import Policy
 from processes.mdp import MDP
 
@@ -7,7 +7,7 @@ S = TypeVar('S')
 A = TypeVar('A')
 
 
-class OptPlanningAnal(OptPlanningBase):
+class DPAnalytic(PlanningBase):
 
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         super().__init__(mdp_obj, tol)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     print(mrp1_obj.rewards_vec)
     print(mrp1_obj.get_value_func_vec())
     tol_val = 1e-4
-    opn = OptPlanningAnal(mdp1_obj, tol_val)
+    opn = DPAnalytic(mdp1_obj, tol_val)
     opt_policy_pi = opn.get_optimal_policy_pi()
     print(opt_policy_pi)
     opt_vf_dict_pi = opn.get_value_func_dict(opt_policy_pi)

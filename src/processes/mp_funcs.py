@@ -91,8 +91,10 @@ def get_epsilon_action_probs(
 def get_softmax_action_probs(
     action_value_dict: Mapping[A, float]
 ) -> Mapping[A, float]:
-    exp_sum = sum(np.exp(q) for q in action_value_dict.values())
-    return {a: np.exp(q) / exp_sum for a, q in action_value_dict.items()}
+    aq = {a: q - max(action_value_dict.values())
+          for a, q in action_value_dict.items()}
+    exp_sum = sum(np.exp(q) for q in aq.values())
+    return {a: np.exp(q) / exp_sum for a, q in aq.items()}
 
 
 if __name__ == '__main__':

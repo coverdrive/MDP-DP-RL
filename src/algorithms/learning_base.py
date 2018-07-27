@@ -15,7 +15,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptLearningBase(OptBase):
+class LearningBase(OptBase):
 
     def __init__(
         self,

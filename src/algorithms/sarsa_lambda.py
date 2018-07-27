@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping
-from algorithms.opt_learning_tdl_base import OptLearningTDLBase
+from algorithms.tdlambda_base import TDLambdaBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
@@ -13,7 +13,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptLearningSARSALambda(OptLearningTDLBase):
+class SARSALambda(TDLambdaBase):
 
     def __init__(
         self,
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     lambda_val = 0.1
     episodes_limit = 1000
     max_steps_val = 1000
-    sarsa_lambda_obj = OptLearningSARSALambda(
+    sarsa_lambda_obj = SARSALambda(
         mdp_ref_obj1,
         softmax_flag,
         epsilon_val,

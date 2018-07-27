@@ -13,7 +13,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class OptPlanningBase(OptBase):
+class PlanningBase(OptBase):
 
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         self.mdp_obj: MDP = mdp_obj
