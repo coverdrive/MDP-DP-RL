@@ -1,7 +1,8 @@
-from typing import Mapping, TypeVar, Set, Tuple, Sequence, Any
+from typing import Mapping, TypeVar, Set, Tuple, Sequence, Any, Callable
 from utils.gen_utils import memoize, is_approx_eq, sum_dicts
 import numpy as np
 from operator import itemgetter
+from scipy.stats import rv_discrete
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -64,8 +65,9 @@ def mdp_rep_to_mrp_rep1(
     mdp_rep: SASf,
     policy_rep: SAf
 ) -> SSf:
-    return {s: sum_dicts([{s1: policy_rep[s].get(a, 0) * v2 for s1, v2 in v1.items()}
-                         for a, v1 in v.items()]) for s, v in mdp_rep.items()}
+    return {s: sum_dicts([{s1: policy_rep[s].get(a, 0) * v2 for s1, v2
+                           in v1.items()}
+                          for a, v1 in v.items()]) for s, v in mdp_rep.items()}
 
 
 def mdp_rep_to_mrp_rep2(
@@ -74,6 +76,45 @@ def mdp_rep_to_mrp_rep2(
 ) -> Mapping[S, float]:
     return {s: sum([policy_rep[s].get(a, 0) * v1 for a, v1 in v.items()])
             for s, v in mdp_rep.items()}
+
+
+# noinspection PyShadowingNames
+def get_rv_gen_func_single(prob_dict: Mapping[S, float])\
+        -> Callable[[], S]:
+    outcomes, probabilities = zip(*prob_dict.items())
+    rvd = rv_discrete(values=(range(len(outcomes)), probabilities))
+    return lambda rvd=rvd, outcomes=outcomes: outcomes[rvd.rvs(size=1)[0]]
+
+
+# noinspection PyShadowingNames
+def get_rv_gen_func(prob_dict: Mapping[S, float])\
+        -> Callable[[int], Sequence[S]]:
+    outcomes, probabilities = zip(*prob_dict.items())
+    rvd = rv_discrete(values=(range(len(outcomes)), probabilities))
+    return lambda n, rvd=rvd, outcomes=outcomes: [outcomes[k]
+                                                  for k in rvd.rvs(size=n)]
+
+
+def get_state_reward_gen_func(
+        prob_dict: Mapping[S, float],
+        rew_dict: Mapping[S, float]
+) -> Callable[[], Tuple[S, float]]:
+    gf = get_rv_gen_func_single(prob_dict)
+
+    # noinspection PyShadowingNames
+    def ret_func(gf=gf, rew_dict=rew_dict) -> Tuple[S, float]:
+        state_outcome = gf()
+        reward_outcome = rew_dict[state_outcome]
+        return state_outcome, reward_outcome
+
+    return ret_func
+
+
+def get_state_reward_gen_dict(rr: SASf, tr: SASf) \
+        -> Mapping[S, Mapping[A, Callable[[], Tuple[S, float]]]]:
+    return {s: {a: get_state_reward_gen_func(tr[s][a], rr[s][a])
+                for a, _ in v.items()}
+            for s, v in rr.items()}
 
 
 def get_epsilon_action_probs(

@@ -4,10 +4,10 @@ import numpy as np
 from numpy.core.multiarray import ndarray
 from scipy.stats import poisson
 from processes.mdp_refined import MDPRefined
-from pprint import pprint
 from copy import deepcopy
 from operator import itemgetter
 from processes.det_policy import DetPolicy
+from examples.run_all_algorithms import RunAllAlgorithms
 
 StateType = Tuple[int, ...]
 
@@ -131,39 +131,50 @@ class InvControl(NamedTuple):
 
 
 if __name__ == '__main__':
+
     ic = InvControl(
-        demand_lambda=1.2,
+        demand_lambda=0.5,
         lead_time=1,
         stockout_cost=49.,
-        fixed_order_cost=3.0,
+        fixed_order_cost=0.0,
         epoch_disc_factor=0.98,
-        order_limit=10,
-        space_limit=10,
+        order_limit=7,
+        space_limit=8,
         throwout_cost=30.,
         stockout_limit=5,
         stockout_limit_excess_cost=30.
     )
     valid = ic.validate_spec()
-    print(valid)
-    all_states = ic.get_all_states()
-    pprint(all_states)
-    this_state = (2, 3)
-    this_action = 4
-    this_rv = poisson(ic.demand_lambda)
-    r_probs = [this_rv.pmf(i) for i in range(int(this_rv.ppf(0.9999)))]
-    d_probs = [p / sum(r_probs) for p in r_probs]
-    next_dict = ic.get_next_states_probs_rewards(
-        this_state,
-        this_action,
-        d_probs
-    )
-    print(next_dict)
-    mdp_ref_dict = ic.get_mdp_refined_dict()
-    pprint(mdp_ref_dict)
     mdp_ref_obj = ic.get_mdp_refined()
-    opt_pol = mdp_ref_obj.get_optimal_policy()
-    pprint(opt_pol)
-    vfd = mdp_ref_obj.get_value_func_dict(opt_pol)
-    pprint(vfd)
-    ips_orders_dict = ic.get_ips_orders_dict()
-    pprint(ips_orders_dict)
+    this_tolerance = 1e-4
+    this_first_visit_mc = True
+    this_softmax = False
+    this_epsilon = 0.2
+    this_alpha = 0.1
+    this_lambd = 0.8
+    this_num_episodes = 10000
+    this_max_steps = 1000
+
+    raa = RunAllAlgorithms(
+        mdp_refined=mdp_ref_obj,
+        tolerance=this_tolerance,
+        first_visit_mc=this_first_visit_mc,
+        softmax=this_softmax,
+        epsilon=this_epsilon,
+        alpha=this_alpha,
+        lambd=this_lambd,
+        num_episodes=this_num_episodes,
+        max_steps=this_max_steps
+    )
+
+    def criter(x: Tuple[Tuple[int, ...], int]) -> int:
+        return sum(x[0])
+
+    for st, mo in raa.get_all_algorithms().items():
+        print("Starting %s" % st)
+        sas = mo.get_optimal_det_policy().get_state_to_action_map().items()
+        print(sorted(
+            [(ip, np.mean([float(y) for _, y in v])) for ip, v in
+             groupby(sorted(sas, key=criter), key=criter)],
+            key=itemgetter(0)
+        ))

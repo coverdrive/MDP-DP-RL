@@ -1,5 +1,6 @@
 from typing import NamedTuple, Mapping, Tuple, TypeVar
 from processes.mdp_refined import MDPRefined
+from processes.mdp_rep_for_rl_finite_sa import MDPRepForRLFiniteSA
 from processes.det_policy import DetPolicy
 from algorithms.dp_analytic import DPAnalytic
 from algorithms.dp_numeric import DPNumeric
@@ -12,6 +13,7 @@ from algorithms.qlearning_lambda import QLearningLambda
 from algorithms.expected_sarsa_lambda import ExpectedSARSALambda
 from algorithms.opt_base import OptBase
 from itertools import groupby
+from utils.gen_utils import memoize
 import numpy as np
 from operator import itemgetter
 
@@ -29,6 +31,10 @@ class RunAllAlgorithms(NamedTuple):
     lambd: float
     num_episodes: int
     max_steps: int
+
+    @memoize
+    def get_mdp_rep_for_rl_finite_sa(self):
+        return MDPRepForRLFiniteSA(self.mdp_refined)
 
     def get_all_algorithms(self) -> Mapping[str, OptBase]:
         return {
@@ -59,7 +65,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_monte_carlo(self) -> MonteCarlo:
         return MonteCarlo(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.first_visit_mc,
             self.softmax,
             self.epsilon,
@@ -69,7 +75,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_sarsa(self) -> SARSA:
         return SARSA(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -79,7 +85,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_qlearning(self) -> QLearning:
         return QLearning(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -89,7 +95,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_expected_sarsa(self) -> ExpectedSARSA:
         return ExpectedSARSA(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -99,7 +105,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_sarsa_lambda(self) -> SARSALambda:
         return SARSALambda(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -110,7 +116,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_qlearning_lambda(self) -> QLearningLambda:
         return QLearningLambda(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -121,7 +127,7 @@ class RunAllAlgorithms(NamedTuple):
 
     def get_expected_sarsa_lambda(self) -> ExpectedSARSALambda:
         return ExpectedSARSALambda(
-            self.mdp_refined,
+            self.get_mdp_rep_for_rl_finite_sa(),
             self.softmax,
             self.epsilon,
             self.alpha,

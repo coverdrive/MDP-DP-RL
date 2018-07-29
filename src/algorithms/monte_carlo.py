@@ -2,10 +2,10 @@ from typing import TypeVar, Mapping, Optional, Tuple, Sequence
 from algorithms.learning_base import LearningBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
-from processes.det_policy import DetPolicy
-from algorithms.helper_funcs import get_rv_gen_func, get_returns_from_rewards
+from processes.mp_funcs import get_rv_gen_func_single
+from processes.mdp_rep_for_rl_finite_sa import MDPRepForRLFiniteSA
+from algorithms.helper_funcs import get_returns_from_rewards
 from algorithms.helper_funcs import get_soft_policy_from_qf
-from algorithms.helper_funcs import get_det_policy_from_qf
 from algorithms.helper_funcs import get_return_eval_steps
 import numpy as np
 
@@ -19,7 +19,7 @@ class MonteCarlo(LearningBase):
 
     def __init__(
         self,
-        mdp_ref_obj: MDPRefined,
+        mdp_rep_for_rl: MDPRepForRLFiniteSA,
         first_visit: bool,
         softmax: bool,
         epsilon: float,
@@ -27,11 +27,17 @@ class MonteCarlo(LearningBase):
         max_steps: int
     ) -> None:
 
-        super().__init__(mdp_ref_obj, softmax, epsilon, num_episodes, max_steps)
+        super().__init__(
+            mdp_rep_for_rl,
+            softmax,
+            epsilon,
+            num_episodes,
+            max_steps
+        )
         self.first_visit: bool = first_visit
         self.return_eval_steps = get_return_eval_steps(
             max_steps,
-            mdp_ref_obj.gamma,
+            mdp_rep_for_rl.gamma,
             epsilon
         )
 
@@ -46,42 +52,42 @@ class MonteCarlo(LearningBase):
         next_state = start_state
         steps = 0
         terminate = False
-        state_occ = {s: False for s in self.state_action_dict.keys()}
-        act_gen_dict = {s: get_rv_gen_func(pol.get_state_probabilities(s))
-                        for s in self.state_action_dict.keys()}
+        state_occ = {s: False for s in self.mdp_rep.state_action_dict.keys()}
+        act_gen_dict = {s: get_rv_gen_func_single(pol.get_state_probabilities(s))
+                        for s in self.mdp_rep.state_action_dict.keys()}
 
         while not terminate:
             state = next_state
             state_occ[state] = True if not state_occ[state] else False
-            action = act_gen_dict[state](1)[0]\
+            action = act_gen_dict[state]()\
                 if (steps > 0 or start_action is None) else start_action
-            next_state, reward = self.state_reward_gen_dict[state][action]()
+            next_state, reward =\
+                self.mdp_rep.state_reward_gen_dict[state][action]()
             res.append((state, action, reward, state_occ[state]))
             steps += 1
-            terminate = steps >= self.max_steps or state in self.terminal_states
+            terminate = steps >= self.max_steps or\
+                state in self.mdp_rep.terminal_states
         return res
 
     def get_value_func_dict(self, pol: Policy) -> VFType:
-        sa_dict = self.state_action_dict
-        s_uniform_dict = {s: 1. / len(sa_dict) for s in sa_dict.keys()}
-        start_gen_f = get_rv_gen_func(s_uniform_dict)
+        sa_dict = self.mdp_rep.state_action_dict
         counts_dict = {s: 0 for s in sa_dict.keys()}
         vf_dict = {s: 0.0 for s in sa_dict.keys()}
         episodes = 0
 
         while episodes < self.num_episodes:
-            start_state = start_gen_f(1)[0]
+            start_state = self.mdp_rep.init_state_gen()
             mc_path = self.get_mc_path(
                 pol,
                 start_state,
                 start_action=None
             )
 
-            eval_steps = len(mc_path) if mc_path[-1][0] in self.terminal_states\
-                else self.return_eval_steps
+            eval_steps = len(mc_path) if mc_path[-1][0] in\
+                self.mdp_rep.terminal_states else self.return_eval_steps
             returns = get_returns_from_rewards(
                 np.array([x for _, _, x, _ in mc_path]),
-                self.gamma,
+                self.mdp_rep.gamma,
                 eval_steps
             )
             for i, r in enumerate(returns):
@@ -94,27 +100,26 @@ class MonteCarlo(LearningBase):
 
         return vf_dict
 
-    def get_act_value_func_dict(self, pol: Policy) -> QVFType:
-        sa_dict = self.state_action_dict
-        sa_uniform_dict = {(s, a): 1. / sum(len(v) for v in sa_dict.values())
-                           for s, v1 in sa_dict.items() for a in v1}
-        start_gen_f = get_rv_gen_func(sa_uniform_dict)
+    def get_qv_func_dict(self, pol: Optional[Policy]) -> QVFType:
+        control = pol is None
+        this_pol = pol if pol is not None else self.get_init_policy()
+        sa_dict = self.mdp_rep.state_action_dict
         counts_dict = {s: {a: 0 for a in v} for s, v in sa_dict.items()}
         qf_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
         episodes = 0
 
         while episodes < self.num_episodes:
-            start_state, start_action = start_gen_f(1)[0]
+            start_state, start_action = self.mdp_rep.init_state_action_gen()
             mc_path = self.get_mc_path(
-                pol,
+                this_pol,
                 start_state,
                 start_action
             )
-            eval_steps = len(mc_path) if mc_path[-1][0] in self.terminal_states \
-                else self.return_eval_steps
+            eval_steps = len(mc_path) if mc_path[-1][0] in \
+                self.mdp_rep.terminal_states else self.return_eval_steps
             returns = get_returns_from_rewards(
                 np.array([x for _, _, x, _ in mc_path]),
-                self.gamma,
+                self.mdp_rep.gamma,
                 eval_steps
             )
             for i, r in enumerate(returns):
@@ -123,43 +128,15 @@ class MonteCarlo(LearningBase):
                     counts_dict[s][a] += 1
                     c = counts_dict[s][a]
                     qf_dict[s][a] = (qf_dict[s][a] * (c - 1) + r) / c
+            if control:
+                this_pol = get_soft_policy_from_qf(
+                    qf_dict,
+                    self.softmax,
+                    self.epsilon
+                )
             episodes += 1
 
         return qf_dict
-
-    def get_optimal_det_policy(self) -> DetPolicy:
-        pol = self.get_init_policy()
-        sa_dict = self.state_action_dict
-        s_uniform_dict = {s: 1. / len(sa_dict) for s in sa_dict.keys()}
-        start_gen_f = get_rv_gen_func(s_uniform_dict)
-        counts_dict = {s: {a: 0 for a in v} for s, v in sa_dict.items()}
-        qf_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
-        episodes = 0
-
-        while episodes < self.num_episodes:
-            start_state = start_gen_f(1)[0]
-            mc_path = self.get_mc_path(
-                pol,
-                start_state,
-                start_action=None
-            )
-            eval_steps = len(mc_path) if mc_path[-1][0] in self.terminal_states \
-                else self.return_eval_steps
-            returns = get_returns_from_rewards(
-                np.array([x for _, _, x, _ in mc_path]),
-                self.gamma,
-                eval_steps
-            )
-            for i, r in enumerate(returns):
-                s, a, _, f = mc_path[i]
-                if not self.first_visit or f:
-                    counts_dict[s][a] += 1
-                    c = counts_dict[s][a]
-                    qf_dict[s][a] = (qf_dict[s][a] * (c - 1) + r) / c
-            pol = get_soft_policy_from_qf(qf_dict, self.softmax, self.epsilon)
-            episodes += 1
-
-        return get_det_policy_from_qf(qf_dict)
 
 
 if __name__ == '__main__':
@@ -180,6 +157,7 @@ if __name__ == '__main__':
     }
     gamma_val = 1.0
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
+    mdp_rep_obj = MDPRepForRLFiniteSA(mdp_ref_obj1)
 
     first_visit_flag = True
     softmax_flag = False
@@ -187,7 +165,7 @@ if __name__ == '__main__':
     epsilon_val = 0.1
     max_steps_val = 1000
     mc_obj = MonteCarlo(
-        mdp_ref_obj1,
+        mdp_rep_obj,
         first_visit_flag,
         softmax_flag,
         epsilon_val,

@@ -3,6 +3,7 @@ from enum import Enum
 from scipy.stats import norm
 from processes.mdp_refined import MDPRefined
 from processes.det_policy import DetPolicy
+from examples.run_all_algorithms import RunAllAlgorithms
 
 Node = Tuple[int, int]
 NodeSet = Set[Node]
@@ -165,17 +166,35 @@ if __name__ == '__main__':
         block_bump_cost=4.
     )
     valid = wg.validate_spec()
-    print(valid)
-    all_nt_states = wg.get_all_nt_states()
-    print(all_nt_states)
-    mdp_refined_dict = wg.get_mdp_refined_dict()
-    print(mdp_refined_dict)
-    mdp_refined_obj = wg.get_mdp_refined()
-    opt_pol = mdp_refined_obj.get_optimal_policy()
-    wg.print_policy(opt_pol)
-    vfd = mdp_refined_obj.get_value_func_dict(opt_pol)
-    chars_count = 5
-    decimals_count = 2
-    wg.print_vf(vfd, chars_count, decimals_count)
-    print()
-    wg.print_wind_and_bumps(chars_count, decimals_count)
+    mdp_ref_obj = wg.get_mdp_refined()
+    this_tolerance = 1e-4
+    this_first_visit_mc = True
+    this_softmax = False
+    this_epsilon = 0.2
+    this_alpha = 0.1
+    this_lambd = 0.8
+    this_num_episodes = 20000
+    this_max_steps = 1000
+
+    raa = RunAllAlgorithms(
+        mdp_refined=mdp_ref_obj,
+        tolerance=this_tolerance,
+        first_visit_mc=this_first_visit_mc,
+        softmax=this_softmax,
+        epsilon=this_epsilon,
+        alpha=this_alpha,
+        lambd=this_lambd,
+        num_episodes=this_num_episodes,
+        max_steps=this_max_steps
+    )
+    for name, algo in raa.get_all_algorithms().items():
+        print(name)
+        opt_pol = algo.get_optimal_det_policy()
+        wg.print_policy(opt_pol)
+        chars_count = 5
+        decimals_count = 2
+        print()
+        wg.print_wind_and_bumps(chars_count, decimals_count)
+        print()
+        print()
+
