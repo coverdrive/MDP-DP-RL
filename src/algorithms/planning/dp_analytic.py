@@ -1,32 +1,24 @@
 from typing import TypeVar, Mapping
-from algorithms.planning_base import PlanningBase
+from algorithms.planning.planning_base import PlanningBase
 from processes.policy import Policy
-from processes.mp_funcs import mdp_rep_to_mrp_rep1, mdp_rep_to_mrp_rep2
 from processes.mdp import MDP
 
 S = TypeVar('S')
 A = TypeVar('A')
 
 
-class DPNumeric(PlanningBase):
+class DPAnalytic(PlanningBase):
 
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         super().__init__(mdp_obj, tol)
 
     def get_value_func_dict(self, pol: Policy) -> Mapping[S, float]:
-        vf = {s: 0. for s in self.mdp_obj.all_states}
-        epsilon = self.tol * 1e4
-        mo = self.mdp_obj
-        pd = pol.policy_data
-        rew = mdp_rep_to_mrp_rep2(mo.rewards, pd)
-        prob = mdp_rep_to_mrp_rep1(mo.transitions, pd)
-        while epsilon >= self.tol:
-            new_vf = {s: rew[s] + mo.gamma * sum(p * vf[s1]
-                                                 for s1, p in prob[s].items())
-                      for s in mo.all_states}
-            epsilon = max(abs(new_vf[s] - v) for s, v in vf.items())
-            vf = new_vf
-        return vf
+        mrp_obj = self.mdp_obj.get_mrp(pol)
+        value_func_vec = mrp_obj.get_value_func_vec()
+        nt_vf = {mrp_obj.nt_states_list[i]: value_func_vec[i]
+                 for i in range(len(mrp_obj.nt_states_list))}
+        t_vf = {s: 0. for s in self.mdp_obj.terminal_states}
+        return {**nt_vf, **t_vf}
 
 
 if __name__ == '__main__':
@@ -60,7 +52,7 @@ if __name__ == '__main__':
     print(mrp1_obj.rewards_vec)
     print(mrp1_obj.get_value_func_vec())
     tol_val = 1e-4
-    opn = DPNumeric(mdp1_obj, tol_val)
+    opn = DPAnalytic(mdp1_obj, tol_val)
     opt_policy_pi = opn.get_optimal_policy_pi()
     print(opt_policy_pi)
     opt_vf_dict_pi = opn.get_value_func_dict(opt_policy_pi)

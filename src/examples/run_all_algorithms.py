@@ -2,11 +2,11 @@ from typing import NamedTuple, Mapping, Tuple, TypeVar
 from processes.mdp_refined import MDPRefined
 from processes.mdp_rep_for_rl_finite_sa import MDPRepForRLFiniteSA
 from processes.det_policy import DetPolicy
-from algorithms.dp_analytic import DPAnalytic
-from algorithms.dp_numeric import DPNumeric
-from algorithms.monte_carlo import MonteCarlo
-from algorithms.td0 import TD0
-from algorithms.tdlambda import TDLambda
+from algorithms.planning.dp_analytic import DPAnalytic
+from algorithms.planning.dp_numeric import DPNumeric
+from algorithms.rl_tabular.monte_carlo import MonteCarlo
+from algorithms.rl_tabular.td0 import TD0
+from algorithms.rl_tabular.tdlambda import TDLambda
 from algorithms.opt_base import OptBase
 from algorithms.td_algo_enum import TDAlgorithm
 from itertools import groupby
@@ -164,8 +164,8 @@ if __name__ == '__main__':
     this_epsilon = 0.1
     this_alpha = 0.1
     this_lambd = 0.8
-    this_num_episodes = 3000
-    this_max_steps = 1000
+    this_num_episodes = 300
+    this_max_steps = 100
 
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,

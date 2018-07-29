@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping, Optional, Tuple, Sequence
-from algorithms.learning_base import LearningBase
+from algorithms.rl_tabular.tabular_base import TabularBase
 from processes.mdp_refined import MDPRefined
 from processes.policy import Policy
 from processes.mp_funcs import get_rv_gen_func_single
@@ -15,7 +15,7 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class MonteCarlo(LearningBase):
+class MonteCarlo(TabularBase):
 
     def __init__(
         self,
