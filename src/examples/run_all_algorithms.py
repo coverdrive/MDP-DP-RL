@@ -5,13 +5,10 @@ from processes.det_policy import DetPolicy
 from algorithms.dp_analytic import DPAnalytic
 from algorithms.dp_numeric import DPNumeric
 from algorithms.monte_carlo import MonteCarlo
-from algorithms.sarsa import SARSA
-from algorithms.qlearning import QLearning
-from algorithms.expected_sarsa import ExpectedSARSA
-from algorithms.sarsa_lambda import SARSALambda
-from algorithms.qlearning_lambda import QLearningLambda
-from algorithms.expected_sarsa_lambda import ExpectedSARSALambda
+from algorithms.td0 import TD0
+from algorithms.tdlambda import TDLambda
 from algorithms.opt_base import OptBase
+from algorithms.td_algo_enum import TDAlgorithm
 from itertools import groupby
 from utils.gen_utils import memoize
 import numpy as np
@@ -73,9 +70,10 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_sarsa(self) -> SARSA:
-        return SARSA(
+    def get_sarsa(self) -> TD0:
+        return TD0(
             self.get_mdp_rep_for_rl_finite_sa(),
+            TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -83,9 +81,10 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_qlearning(self) -> QLearning:
-        return QLearning(
+    def get_qlearning(self) -> TD0:
+        return TD0(
             self.get_mdp_rep_for_rl_finite_sa(),
+            TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -93,9 +92,10 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_expected_sarsa(self) -> ExpectedSARSA:
-        return ExpectedSARSA(
+    def get_expected_sarsa(self) -> TD0:
+        return TD0(
             self.get_mdp_rep_for_rl_finite_sa(),
+            TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -103,20 +103,10 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_sarsa_lambda(self) -> SARSALambda:
-        return SARSALambda(
+    def get_sarsa_lambda(self) -> TDLambda:
+        return TDLambda(
             self.get_mdp_rep_for_rl_finite_sa(),
-            self.softmax,
-            self.epsilon,
-            self.alpha,
-            self.lambd,
-            self.num_episodes,
-            self.max_steps
-        )
-
-    def get_qlearning_lambda(self) -> QLearningLambda:
-        return QLearningLambda(
-            self.get_mdp_rep_for_rl_finite_sa(),
+            TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
             self.alpha,
@@ -125,9 +115,22 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_expected_sarsa_lambda(self) -> ExpectedSARSALambda:
-        return ExpectedSARSALambda(
+    def get_qlearning_lambda(self) -> TDLambda:
+        return TDLambda(
             self.get_mdp_rep_for_rl_finite_sa(),
+            TDAlgorithm.QLearning,
+            self.softmax,
+            self.epsilon,
+            self.alpha,
+            self.lambd,
+            self.num_episodes,
+            self.max_steps
+        )
+
+    def get_expected_sarsa_lambda(self) -> TDLambda:
+        return TDLambda(
+            self.get_mdp_rep_for_rl_finite_sa(),
+            TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
             self.alpha,
