@@ -11,11 +11,11 @@ class FuncApproxBase(ABC):
     def __init__(
         self,
         feature_funcs: Sequence[Callable[[X], float]],
-        reglr_coeff: float = 0.,
-        learning_rate: float = 0.1,
-        adam: bool = True,
-        adam_decay1: float = 0.9,
-        adam_decay2: float = 0.999,
+        reglr_coeff: float,
+        learning_rate: float,
+        adam: bool,
+        adam_decay1: float,
+        adam_decay2: float
     ):
         self.feature_funcs: Sequence[Callable[[X], float]] = feature_funcs
         self.num_features = len(self.feature_funcs)
@@ -35,8 +35,8 @@ class FuncApproxBase(ABC):
     def get_feature_vals(self, x_vals: X) -> np.ndarray:
         return np.array([1.] + [f(x_vals) for f in self.feature_funcs])
 
-    def get_feature_vals_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
-        return np.vstack(self.get_feature_vals(x) for x in x_vals_seq)
+    # def get_feature_vals_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
+    #     return np.vstack(self.get_feature_vals(x) for x in x_vals_seq)
 
     @abstractmethod
     def init_params(self) -> Sequence[np.ndarray]:
@@ -72,7 +72,7 @@ class FuncApproxBase(ABC):
     ) -> None:
         grad = self.get_gradient(x_vals_seq, supervisory_seq)
         for l in range(len(self.params)):
-            g = grad[l] + self.reglr_coeff * self.params[l]
+            g = 2. * (grad[l] / len(x_vals_seq)+ self.reglr_coeff * self.params[l])
             if self.adam:
                 self.adam_caches[0][l] = self.adam_decay1 * self.adam_caches[0][l] +\
                     (1 - self.adam_decay1) * g

@@ -11,11 +11,11 @@ class LinearApprox(FuncApproxBase):
     def __init__(
         self,
         feature_funcs: Sequence[Callable[[X], float]],
-        reglr_coeff: float,
-        learning_rate: float,
-        adam: bool,
-        adam_decay1: float,
-        adam_decay2: float,
+        reglr_coeff: float = 0.,
+        learning_rate: float = 0.1,
+        adam: bool = True,
+        adam_decay1: float = 0.9,
+        adam_decay2: float = 0.99
     ):
         super().__init__(
             feature_funcs,
@@ -50,7 +50,7 @@ class LinearApprox(FuncApproxBase):
         # return [np.dot(np.dot(all_features, self.params[0]) - np.array(supervisory_seq),
         #               all_features)]
         return [np.sum((self.get_func_eval(x) - supervisory_seq[i]) * self.get_feature_vals(x)
-                      for i, x in enumerate(x_vals_seq))]
+                       for i, x in enumerate(x_vals_seq))]
 
 
 if __name__ == '__main__':
@@ -76,12 +76,13 @@ if __name__ == '__main__':
     def superv_func(pt, alpha=alpha, beta=beta):
         return alpha + np.dot(beta, pt)
 
-    n = norm(loc=0., scale=10.)
-    superv_pts = [superv_func(r) for r in pts] + n.rvs(size=len(pts))
+    n = norm(loc=0., scale=1.)
+    superv_pts = [superv_func(r) + n.rvs(size=1)[0] for r in pts]
     # import matplotlib.pyplot as plt
     for _ in range(1000):
         print(la.params[0])
         la.update_params(pts, superv_pts)
-        # pred_pts = [la.get_func_eval(x) for x in pts]
-        # print(np.linalg.norm(np.array(pred_pts) - np.array(superv_pts)) / len(superv_pts))
+        pred_pts = [la.get_func_eval(x) for x in pts]
+        print(np.linalg.norm(np.array(pred_pts) - np.array(superv_pts)) /
+              np.sqrt(len(superv_pts)))
 

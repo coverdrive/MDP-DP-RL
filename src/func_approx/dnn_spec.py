@@ -1,11 +1,16 @@
-from typing import Callable, Sequence, NamedTuple, Union
+from typing import Callable, Sequence, NamedTuple
 import numpy as np
 
-sci_type = Union[float, np.ndarray]
 
 class DNNSpec(NamedTuple):
     neurons: Sequence[int]
-    hidden_activation: Callable[[sci_type], sci_type]
-    hidden_activation_deriv: Callable[[sci_type], sci_type]
-    output_activation: Callable[[sci_type], sci_type]
-    output_activation_deriv: Callable[[sci_type], sci_type]
+    hidden_activation: Callable[[np.ndarray], np.ndarray]
+    hidden_activation_deriv: Callable[[np.ndarray], np.ndarray]
+
+    @staticmethod
+    def relu(arg: np.ndarray) -> np.ndarray:
+        return np.vectorize(lambda x: x if x > 0. else 0.)(arg)
+
+    @staticmethod
+    def relu_deriv(res: np.ndarray) -> np.ndarray:
+        return np.vectorize(lambda x: 1. if x > 0. else 0.)(res)
