@@ -150,7 +150,7 @@ if __name__ == '__main__':
     this_first_visit_mc = True
     this_softmax = False
     this_epsilon = 0.2
-    this_alpha = 0.1
+    this_learning_rate = 0.1
     this_lambd = 0.8
     this_num_episodes = 10000
     this_max_steps = 1000
@@ -161,7 +161,7 @@ if __name__ == '__main__':
         first_visit_mc=this_first_visit_mc,
         softmax=this_softmax,
         epsilon=this_epsilon,
-        alpha=this_alpha,
+        learning_rate=this_learning_rate,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
         max_steps=this_max_steps

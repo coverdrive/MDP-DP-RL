@@ -35,8 +35,8 @@ class FuncApproxBase(ABC):
     def get_feature_vals(self, x_vals: X) -> np.ndarray:
         return np.array([1.] + [f(x_vals) for f in self.feature_funcs])
 
-    # def get_feature_vals_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
-    #     return np.vstack(self.get_feature_vals(x) for x in x_vals_seq)
+    def get_feature_vals_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
+        return np.vstack(self.get_feature_vals(x) for x in x_vals_seq)
 
     @abstractmethod
     def init_params(self) -> Sequence[np.ndarray]:
@@ -58,21 +58,36 @@ class FuncApproxBase(ABC):
         )
 
     @abstractmethod
-    def get_gradient(
+    def get_sum_loss_gradient(
         self,
         x_vals_seq: Sequence[X],
         supervisory_seq: Sequence[float]
     ) -> Sequence[np.ndarray]:
         pass
 
+    @abstractmethod
+    def get_sum_func_gradient(self, x_vals_seq: Sequence[X])\
+            -> Sequence[np.ndarray]:
+        pass
+
+    @abstractmethod
+    def get_el_tr_sum_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        supervisory_seq: Sequence[float],
+        gamma_lambda: float
+    ) -> Sequence[np.ndarray]:
+        pass
+
     def update_params(
         self,
-        x_vals_seq: Sequence[Sequence[X]],
+        x_vals_seq: Sequence[X],
         supervisory_seq: Sequence[float]
     ) -> None:
-        grad = self.get_gradient(x_vals_seq, supervisory_seq)
+        sum_loss_gradient = self.get_sum_loss_gradient(x_vals_seq, supervisory_seq)
         for l in range(len(self.params)):
-            g = 2. * (grad[l] / len(x_vals_seq)+ self.reglr_coeff * self.params[l])
+            g = sum_loss_gradient[l] / len(x_vals_seq) + self.reglr_coeff *\
+                self.params[l]
             if self.adam:
                 self.adam_caches[0][l] = self.adam_decay1 * self.adam_caches[0][l] +\
                     (1 - self.adam_decay1) * g
@@ -84,4 +99,19 @@ class FuncApproxBase(ABC):
             else:
                 self.params[l] -= self.learning_rate * g
 
-
+    def update_params_from_avg_loss_gradient(
+        self,
+        avg_loss_gradient: Sequence[np.ndarray]
+    ) -> None:
+        for l in range(len(self.params)):
+            g = avg_loss_gradient[l] + self.reglr_coeff * self.params[l]
+            if self.adam:
+                self.adam_caches[0][l] = self.adam_decay1 * self.adam_caches[0][l] +\
+                    (1 - self.adam_decay1) * g
+                self.adam_caches[1][l] = self.adam_decay2 * self.adam_caches[1][l] +\
+                    (1 - self.adam_decay2) * g ** 2
+                self.params[l] -= self.learning_rate * self.adam_caches[0][l] /\
+                    (np.sqrt(self.adam_caches[1][l]) + very_small_pos) *\
+                    np.sqrt(1 - self.adam_decay2) / (1 - self.adam_decay1)
+            else:
+                self.params[l] -= self.learning_rate * g

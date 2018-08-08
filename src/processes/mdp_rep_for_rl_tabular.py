@@ -2,14 +2,14 @@ from typing import TypeVar, Mapping, Set, Callable, Tuple
 from processes.mdp_refined import MDPRefined
 from processes.mp_funcs import get_state_reward_gen_dict
 from processes.mp_funcs import get_rv_gen_func_single
-from processes.mdp_rep_for_rl_finite_a import MDPRepForRLFiniteA
+from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 
 S = TypeVar('S')
 A = TypeVar('A')
 Type1 = Mapping[S, Mapping[A, Callable[[], Tuple[S, float]]]]
 
 
-class MDPRepForRLFiniteSA(MDPRepForRLFiniteA):
+class MDPRepForRLTabular(MDPRepForRLFA):
 
     def __init__(self, mdp_ref_obj: MDPRefined) -> None:
         self.state_action_dict: Mapping[S, Set[A]] = mdp_ref_obj.state_action_dict
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     }
     this_gamma = 0.95
     mdp_refined_obj = MDPRefined(data, this_gamma)
-    this_mdp_rep_for_rl = MDPRepForRLFiniteSA(mdp_refined_obj)
+    this_mdp_rep_for_rl = MDPRepForRLTabular(mdp_refined_obj)
     print(this_mdp_rep_for_rl.state_action_dict)
     print(this_mdp_rep_for_rl.terminal_states)
     print(this_mdp_rep_for_rl.state_reward_gen_dict)

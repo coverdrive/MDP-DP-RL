@@ -1,29 +1,25 @@
-from typing import TypeVar, Mapping
+from typing import TypeVar, Mapping, Callable
 from abc import ABC, abstractmethod
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
 
 S = TypeVar('S')
 A = TypeVar('A')
-VFType = Mapping[S, float]
-QVFType = Mapping[S, Mapping[A, float]]
+Type1 = Callable[[S], float]
+Type2 = Callable[[S], Callable[[A], float]]
 
 
 class OptBase(ABC):
 
     @abstractmethod
-    def get_init_policy(self) -> Policy:
+    def get_value_func(self, pol_func: Type2) -> Type1:
         pass
 
     @abstractmethod
-    def get_value_func_dict(self, pol: Policy) -> VFType:
+    def get_act_value_func(self, pol_func: Type2) -> Type2:
         pass
 
     @abstractmethod
-    def get_act_value_func_dict(self, pol: Policy) -> QVFType:
-        pass
-
-    @abstractmethod
-    def get_optimal_det_policy(self) -> DetPolicy:
+    def get_optimal_det_policy_func(self) -> Callable[[S], A]:
         pass
 

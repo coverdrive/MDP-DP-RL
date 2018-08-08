@@ -1,5 +1,6 @@
 from typing import Sequence, Callable, Tuple, TypeVar
 from func_approx.func_approx_base import FuncApproxBase
+from func_approx.eligibility_traces import get_decay_toeplitz_matrix
 from scipy.stats import norm
 import numpy as np
 
@@ -41,7 +42,7 @@ class LinearApprox(FuncApproxBase):
         """
         return np.dot(self.params[0], self.get_feature_vals(x_vals))
 
-    def get_gradient(
+    def get_sum_loss_gradient(
             self,
             x_vals_seq: Sequence[X],
             supervisory_seq: Sequence[float]
@@ -51,6 +52,23 @@ class LinearApprox(FuncApproxBase):
         #               all_features)]
         return [np.sum((self.get_func_eval(x) - supervisory_seq[i]) * self.get_feature_vals(x)
                        for i, x in enumerate(x_vals_seq))]
+
+    def get_sum_func_gradient(
+            self,
+            x_vals_seq: Sequence[X]
+    ) -> Sequence[np.ndarray]:
+        return [np.sum(self.get_feature_vals(x) for x in x_vals_seq)]
+
+    def get_el_tr_sum_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        supervisory_seq: Sequence[float],
+        gamma_lambda: float
+    ) -> Sequence[np.ndarray]:
+        toeplitz_mat = get_decay_toeplitz_matrix(len(x_vals_seq), gamma_lambda)
+        errors = self.get_func_eval_pts(x_vals_seq) - supervisory_seq
+        func_grad = self.get_func_eval_pts(x_vals_seq)
+        return [errors.dot(toeplitz_mat.dot(func_grad))]
 
 
 if __name__ == '__main__':

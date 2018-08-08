@@ -2,6 +2,7 @@ from typing import Sequence, Callable, Tuple, TypeVar
 from func_approx.func_approx_base import FuncApproxBase
 from func_approx.dnn_spec import DNNSpec
 from scipy.stats import norm
+from func_approx.eligibility_traces import get_generalized_back_prop
 import numpy as np
 
 X = TypeVar('X')
@@ -106,10 +107,10 @@ class DNN(FuncApproxBase):
                      self.hidden_activation_deriv(layer_inputs[l].T))[1:]
         return back_prop[::-1]
 
-    def get_gradient(
-            self,
-            x_vals_seq: Sequence[X],
-            supervisory_seq: Sequence[float]
+    def get_sum_loss_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        supervisory_seq: Sequence[float]
     ) -> Sequence[np.ndarray]:
         """
         :param x_vals_seq: list of n data points (x points)
@@ -122,6 +123,45 @@ class DNN(FuncApproxBase):
         errors = np.array([x[-1][0] for x in all_fwd_prop]) -\
             np.array(supervisory_seq)
         return self.get_back_prop(layer_inputs, errors)
+
+    def get_sum_func_gradient(
+        self,
+        x_vals_seq: Sequence[X]
+    ) -> Sequence[np.ndarray]:
+        """
+        :param x_vals_seq: list of n data points (x points)
+        :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
+                 i.e., same as the type of self.params
+        """
+        all_fwd_prop = [self.get_forward_prop(x) for x in x_vals_seq]
+        layer_inputs = [np.vstack(x) for x in zip(*all_fwd_prop)][:-1]
+        return self.get_back_prop(layer_inputs, np.ones(len(x_vals_seq)))
+
+    def get_el_tr_sum_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        supervisory_seq: Sequence[float],
+        gamma_lambda: float
+    ) -> Sequence[np.ndarray]:
+        """
+        :param x_vals_seq: list of n data points (x points)
+        :param supervisory_seq: list of n supervisory points
+        :param gamma_lambda: decay discount factor
+        :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
+                 i.e., same as the type of self.params
+        """
+        all_fwd_prop = [self.get_forward_prop(x) for x in x_vals_seq]
+        layer_inputs = [np.vstack(x) for x in zip(*all_fwd_prop)][:-1]
+        errors = np.array([x[-1][0] for x in all_fwd_prop]) - \
+            np.array(supervisory_seq)
+        return get_generalized_back_prop(
+            dnn_params=self.params,
+            layer_inputs=layer_inputs,
+            factors=errors,
+            dObj_dSL=np.ones_like(errors),
+            decay_param=gamma_lambda,
+            hidden_activation_deriv=self.hidden_activation_deriv
+        )
 
 
 if __name__ == '__main__':
@@ -156,7 +196,7 @@ if __name__ == '__main__':
         temp2 = np.vectorize(lambda k: k if k > 0. else 0.)(temp1)
         return np.dot(mat2, np.insert(temp2, 0, 1.))
 
-    n = norm(loc=0., scale=0.)
+    n = norm(loc=0., scale=3.)
     superv_pts = [superv_func(r) + n.rvs(size=1)[0] for r in pts]
     for _ in range(1000):
         print(nn.params)
