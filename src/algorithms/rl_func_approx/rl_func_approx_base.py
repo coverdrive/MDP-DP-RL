@@ -22,6 +22,7 @@ class RLFuncApproxBase(OptBase):
         mdp_rep_for_rl: MDPRepForRLFA,
         softmax: bool,
         epsilon: float,
+        epsilon_half_life: float,
         num_episodes: int,
         max_steps: int,
         fa_spec: FuncApproxSpec
@@ -29,7 +30,10 @@ class RLFuncApproxBase(OptBase):
 
         self.mdp_rep: MDPRepForRLFA = mdp_rep_for_rl
         self.softmax: bool = softmax
-        self.epsilon: float = epsilon
+        self.epsilon_func: Callable[[int], float] = get_epsilon_decay_func(
+            epsilon,
+            epsilon_half_life
+        )
         self.num_episodes: int = num_episodes
         self.max_steps: int = max_steps
         self.vf_fa: FuncApproxBase = fa_spec.get_vf_func_approx_obj()

@@ -19,7 +19,9 @@ class TDLambda(RLTabularBase):
         algorithm: TDAlgorithm,
         softmax: bool,
         epsilon: float,
+        epsilon_half_life: float,
         learning_rate: float,
+        learning_rate_decay: float,
         lambd: float,
         num_episodes: int,
         max_steps: int
@@ -29,12 +31,14 @@ class TDLambda(RLTabularBase):
             mdp_rep_for_rl=mdp_rep_for_rl,
             softmax=softmax,
             epsilon=epsilon,
+            epsilon_half_life=epsilon_half_life,
             num_episodes=num_episodes,
             max_steps=max_steps
         )
         self.algorithm: TDAlgorithm = algorithm
         self.learning_rate: float = learning_rate
-        self.lambd: float = lambd
+        self.learning_rate_decay: float = learning_rate_decay
+        self.gamma_lambda = self.mdp_rep.gamma * lambd
 
     def get_value_func_dict(self, pol: Policy) -> VFType:
         sa_dict = self.mdp_rep.state_action_dict
@@ -42,6 +46,7 @@ class TDLambda(RLTabularBase):
         act_gen_dict = {s: get_rv_gen_func_single(pol.get_state_probabilities(s))
                         for s in sa_dict.keys()}
         episodes = 0
+        updates = 0
 
         while episodes < self.num_episodes:
             et_dict = {s: 0. for s in sa_dict.keys()}
@@ -56,9 +61,12 @@ class TDLambda(RLTabularBase):
                 delta = reward + self.mdp_rep.gamma * vf_dict[next_state] -\
                     vf_dict[state]
                 et_dict[state] += 1
+                alpha = self.learning_rate * (updates / self.learning_rate_decay
+                                              + 1) ** -0.5
                 for s in sa_dict.keys():
-                    vf_dict[s] += self.learning_rate * delta * et_dict[s]
-                    et_dict[s] *= self.mdp_rep.gamma * self.lambd
+                    vf_dict[s] += alpha * delta * et_dict[s]
+                    et_dict[s] *= self.gamma_lambda
+                updates += 1
                 steps += 1
                 terminate = steps >= self.max_steps or\
                     state in self.mdp_rep.terminal_states
@@ -74,6 +82,7 @@ class TDLambda(RLTabularBase):
         sa_dict = self.mdp_rep.state_action_dict
         qf_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
         episodes = 0
+        updates = 0
 
         while episodes < self.num_episodes:
             et_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
@@ -101,10 +110,13 @@ class TDLambda(RLTabularBase):
                 delta = reward + self.mdp_rep.gamma * next_qv -\
                     qf_dict[state][action]
                 et_dict[state][action] += 1
+                alpha = self.learning_rate * (updates / self.learning_rate_decay
+                                              + 1) ** -0.5
                 for s, a_set in sa_dict.items():
                     for a in a_set:
-                        qf_dict[s][a] += self.learning_rate * delta * et_dict[s][a]
-                        et_dict[s][a] *= self.mdp_rep.gamma * self.lambd
+                        qf_dict[s][a] += alpha * delta * et_dict[s][a]
+                        et_dict[s][a] *= self.gamma_lambda
+                updates += 1
                 if control:
                     if self.softmax:
                         this_pol.edit_state_action_to_softmax(
@@ -115,7 +127,7 @@ class TDLambda(RLTabularBase):
                         this_pol.edit_state_action_to_epsilon_greedy(
                             state,
                             qf_dict[state],
-                            self.epsilon
+                            self.epsilon_func(episodes)
                         )
                 steps += 1
                 terminate = steps >= self.max_steps or \
@@ -152,7 +164,9 @@ if __name__ == '__main__':
     algorithm_type = TDAlgorithm.ExpectedSARSA
     softmax_flag = True
     epsilon_val = 0.1
+    epsilon_half_life_val = 100
     learning_rate_val = 0.1
+    learning_rate_decay_val = 1e6
     lambda_val = 0.2
     episodes_limit = 1000
     max_steps_val = 1000
@@ -161,7 +175,9 @@ if __name__ == '__main__':
         algorithm_type,
         softmax_flag,
         epsilon_val,
+        epsilon_half_life_val,
         learning_rate_val,
+        learning_rate_decay_val,
         lambda_val,
         episodes_limit,
         max_steps_val

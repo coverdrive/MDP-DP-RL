@@ -19,7 +19,9 @@ class TD0(RLTabularBase):
             algorithm: TDAlgorithm,
             softmax: bool,
             epsilon: float,
+            epsilon_half_life: float,
             learning_rate: float,
+            learning_rate_decay: float,
             num_episodes: int,
             max_steps: int
     ) -> None:
@@ -28,11 +30,13 @@ class TD0(RLTabularBase):
             mdp_rep_for_rl=mdp_rep_for_rl,
             softmax=softmax,
             epsilon=epsilon,
+            epsilon_half_life=epsilon_half_life,
             num_episodes=num_episodes,
             max_steps=max_steps
         )
         self.algorithm: TDAlgorithm = algorithm
         self.learning_rate: float = learning_rate
+        self.learning_rate_decay: Optional[float] = learning_rate_decay
 
     def get_value_func_dict(self, pol: Policy) -> VFType:
         sa_dict = self.mdp_rep.state_action_dict
@@ -40,6 +44,7 @@ class TD0(RLTabularBase):
         act_gen_dict = {s: get_rv_gen_func_single(pol.get_state_probabilities(s))
                         for s in sa_dict.keys()}
         episodes = 0
+        updates = 0
 
         while episodes < self.num_episodes:
             state = self.mdp_rep.init_state_gen()
@@ -50,9 +55,11 @@ class TD0(RLTabularBase):
                 action = act_gen_dict[state]()
                 next_state, reward = \
                     self.mdp_rep.state_reward_gen_dict[state][action]()
-                vf_dict[state] += self.learning_rate * \
+                vf_dict[state] += self.learning_rate *\
+                    (updates / self.learning_rate_decay + 1) ** -0.5 *\
                     (reward + self.mdp_rep.gamma * vf_dict[next_state] -
                      vf_dict[state])
+                updates += 1
                 steps += 1
                 terminate = steps >= self.max_steps or \
                     state in self.mdp_rep.terminal_states
@@ -68,6 +75,7 @@ class TD0(RLTabularBase):
         sa_dict = self.mdp_rep.state_action_dict
         qf_dict = {s: {a: 0.0 for a in v} for s, v in sa_dict.items()}
         episodes = 0
+        updates = 0
 
         while episodes < self.num_episodes:
             state, action = self.mdp_rep.init_state_action_gen()
@@ -91,9 +99,11 @@ class TD0(RLTabularBase):
                 else:
                     next_qv = qf_dict[next_state][next_action]
 
-                qf_dict[state][action] += self.learning_rate * \
+                qf_dict[state][action] += self.learning_rate *\
+                    (updates / self.learning_rate_decay + 1) ** -0.5 *\
                     (reward + self.mdp_rep.gamma * next_qv -
                      qf_dict[state][action])
+                updates += 1
                 if control:
                     if self.softmax:
                         this_pol.edit_state_action_to_softmax(
@@ -104,7 +114,7 @@ class TD0(RLTabularBase):
                         this_pol.edit_state_action_to_epsilon_greedy(
                             state,
                             qf_dict[state],
-                            self.epsilon
+                            self.epsilon_func(episodes)
                         )
                 steps += 1
                 terminate = steps >= self.max_steps or \
@@ -141,7 +151,9 @@ if __name__ == '__main__':
     algorithm_type = TDAlgorithm.SARSA
     softmax_flag = True
     epsilon_val = 0.1
+    epsilon_half_life_val = 100
     learning_rate_val = 0.1
+    learning_rate_decay_val = 1e6
     episodes_limit = 1000
     max_steps_val = 1000
     sarsa_obj = TD0(
@@ -149,7 +161,9 @@ if __name__ == '__main__':
         algorithm_type,
         softmax_flag,
         epsilon_val,
+        epsilon_half_life_val,
         learning_rate_val,
+        learning_rate_decay_val,
         episodes_limit,
         max_steps_val
     )

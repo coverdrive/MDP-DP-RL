@@ -119,9 +119,13 @@ def get_policy_func_for_fa(
     return pf
 
 
-def get_nt_return_eval_steps(max_steps, gamma, eps):
+def get_nt_return_eval_steps(
+    max_steps: int,
+    gamma: float,
+    eps: float
+) -> int:
     low_limit = 0.2 * max_steps
-    high_limit = max_steps - 1
+    high_limit = float(max_steps - 1)
     if gamma == 0.:
         val = high_limit
     elif gamma == 1.:
@@ -135,6 +139,22 @@ def get_nt_return_eval_steps(max_steps, gamma, eps):
             )
         )
     return int(np.floor(val))
+
+
+def get_epsilon_decay_func(
+    epsilon,
+    epsilon_half_life
+) -> Callable[[int], float]:
+
+    # noinspection PyShadowingNames
+    def epsilon_decay(
+        t: int,
+        epsilon=epsilon,
+        epsilon_half_life=epsilon_half_life
+    ) -> float:
+        return epsilon * np.exp(-np.log(2) / epsilon_half_life * t)
+
+    return epsilon_decay
 
 
 if __name__ == '__main__':

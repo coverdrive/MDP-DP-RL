@@ -84,20 +84,9 @@ class FuncApproxBase(ABC):
         x_vals_seq: Sequence[X],
         supervisory_seq: Sequence[float]
     ) -> None:
-        sum_loss_gradient = self.get_sum_loss_gradient(x_vals_seq, supervisory_seq)
-        for l in range(len(self.params)):
-            g = sum_loss_gradient[l] / len(x_vals_seq) + self.reglr_coeff *\
-                self.params[l]
-            if self.adam:
-                self.adam_caches[0][l] = self.adam_decay1 * self.adam_caches[0][l] +\
-                    (1 - self.adam_decay1) * g
-                self.adam_caches[1][l] = self.adam_decay2 * self.adam_caches[1][l] +\
-                    (1 - self.adam_decay2) * g ** 2
-                self.params[l] -= self.learning_rate * self.adam_caches[0][l] /\
-                    (np.sqrt(self.adam_caches[1][l]) + very_small_pos) *\
-                    np.sqrt(1 - self.adam_decay2) / (1 - self.adam_decay1)
-            else:
-                self.params[l] -= self.learning_rate * g
+        avg_loss_gradient = [g / len(x_vals_seq) for g in
+                             self.get_sum_loss_gradient(x_vals_seq, supervisory_seq)]
+        self.update_params_from_avg_loss_gradient(avg_loss_gradient)
 
     def update_params_from_avg_loss_gradient(
         self,

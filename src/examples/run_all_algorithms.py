@@ -24,7 +24,9 @@ class RunAllAlgorithms(NamedTuple):
     first_visit_mc: bool
     softmax: bool
     epsilon: float
+    epsilon_half_life: float
     learning_rate: float
+    learning_rate_decay: float
     lambd: float
     num_episodes: int
     max_steps: int
@@ -66,6 +68,7 @@ class RunAllAlgorithms(NamedTuple):
             self.first_visit_mc,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.num_episodes,
             self.max_steps
         )
@@ -76,7 +79,9 @@ class RunAllAlgorithms(NamedTuple):
             TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.learning_rate,
+            self.learning_rate_decay,
             self.num_episodes,
             self.max_steps
         )
@@ -87,7 +92,9 @@ class RunAllAlgorithms(NamedTuple):
             TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.learning_rate,
+            self.learning_rate_decay,
             self.num_episodes,
             self.max_steps
         )
@@ -98,7 +105,9 @@ class RunAllAlgorithms(NamedTuple):
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.learning_rate,
+            self.learning_rate_decay,
             self.num_episodes,
             self.max_steps
         )
@@ -109,7 +118,9 @@ class RunAllAlgorithms(NamedTuple):
             TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.learning_rate,
+            self.learning_rate_decay,
             self.lambd,
             self.num_episodes,
             self.max_steps
@@ -121,7 +132,9 @@ class RunAllAlgorithms(NamedTuple):
             TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.learning_rate,
+            self.learning_rate_decay,
             self.lambd,
             self.num_episodes,
             self.max_steps
@@ -133,7 +146,9 @@ class RunAllAlgorithms(NamedTuple):
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
+            self.epsilon_half_life,
             self.learning_rate,
+            self.learning_rate_decay,
             self.lambd,
             self.num_episodes,
             self.max_steps
@@ -162,7 +177,9 @@ if __name__ == '__main__':
     this_first_visit_mc = True
     this_softmax = True
     this_epsilon = 0.1
+    this_epsilon_half_life = 30
     this_learning_rate = 0.1
+    this_learning_rate_decay = 1e6
     this_lambd = 0.8
     this_num_episodes = 300
     this_max_steps = 100
@@ -173,7 +190,9 @@ if __name__ == '__main__':
         first_visit_mc=this_first_visit_mc,
         softmax=this_softmax,
         epsilon=this_epsilon,
+        epsilon_half_life=this_epsilon_half_life,
         learning_rate=this_learning_rate,
+        learning_rate_decay=this_learning_rate_decay,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
         max_steps=this_max_steps

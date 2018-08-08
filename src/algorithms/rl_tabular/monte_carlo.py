@@ -23,6 +23,7 @@ class MonteCarlo(RLTabularBase):
         first_visit: bool,
         softmax: bool,
         epsilon: float,
+        epsilon_half_life: float,
         num_episodes: int,
         max_steps: int
     ) -> None:
@@ -31,6 +32,7 @@ class MonteCarlo(RLTabularBase):
             mdp_rep_for_rl=mdp_rep_for_rl,
             softmax=softmax,
             epsilon=epsilon,
+            epsilon_half_life=epsilon_half_life,
             num_episodes=num_episodes,
             max_steps=max_steps
         )
@@ -143,7 +145,7 @@ class MonteCarlo(RLTabularBase):
                 this_pol = get_soft_policy_from_qf_dict(
                     qf_dict,
                     self.softmax,
-                    self.epsilon
+                    self.epsilon_func(episodes)
                 )
             episodes += 1
 
@@ -175,12 +177,14 @@ if __name__ == '__main__':
     softmax_flag = False
     episodes_limit = 1000
     epsilon_val = 0.1
+    epsilon_half_life_val = 100
     max_steps_val = 1000
     mc_obj = MonteCarlo(
         mdp_rep_obj,
         first_visit_flag,
         softmax_flag,
         epsilon_val,
+        epsilon_half_life_val,
         episodes_limit,
         max_steps_val
     )

@@ -22,7 +22,8 @@ class TDLambda(RLFuncApproxBase):
         algorithm: TDAlgorithm,
         softmax: bool,
         epsilon: float,
-        alpha: float,
+        epsilon_half_life: float,
+        learning_rate: float,
         lambd: float,
         num_episodes: int,
         max_steps: int,
@@ -34,14 +35,14 @@ class TDLambda(RLFuncApproxBase):
             mdp_rep_for_rl=mdp_rep_for_rl,
             softmax=softmax,
             epsilon=epsilon,
+            epsilon_half_life=epsilon_half_life,
             num_episodes=num_episodes,
             max_steps=max_steps,
             fa_spec=fa_spec
         )
         self.algorithm: TDAlgorithm = algorithm
-        self.alpha: float = alpha
-        self.lambd: float = lambd
-        self.gamma_lambda = self.mdp_rep.gamma * self.lambd
+        self.learning_rate: float = learning_rate
+        self.gamma_lambda = self.mdp_rep.gamma * lambd
         self.offline = offline
 
     def get_value_func_fa(self, polf: PolicyType) -> Type1:
@@ -136,7 +137,7 @@ class TDLambda(RLFuncApproxBase):
                         self.qvf_fa.get_func_eval,
                         self.state_action_func,
                         self.softmax,
-                        self.epsilon
+                        self.epsilon_func(episodes)
                     )
                 steps += 1
                 terminate = steps >= self.max_steps or \
@@ -182,7 +183,8 @@ if __name__ == '__main__':
     algorithm_type = TDAlgorithm.ExpectedSARSA
     softmax_flag = True
     epsilon_val = 0.1
-    alpha_val = 0.1
+    epsilon_half_life_val = 100
+    learning_rate_val = 0.1
     lambda_val = 0.2
     episodes_limit = 1000
     max_steps_val = 1000
@@ -201,7 +203,8 @@ if __name__ == '__main__':
         algorithm_type,
         softmax_flag,
         epsilon_val,
-        alpha_val,
+        epsilon_half_life_val,
+        learning_rate_val,
         lambda_val,
         episodes_limit,
         max_steps_val,
