@@ -77,13 +77,17 @@ class TDLambda(RLFuncApproxBase):
                 state = next_state
 
             if self.offline:
+                print(states)
+                print(targets)
                 avg_grad = [g / len(states) for g in
                             self.vf_fa.get_el_tr_sum_gradient(
                                 states,
                                 targets,
                                 self.gamma_lambda
                             )]
+                print(avg_grad[0])
                 self.vf_fa.update_params_from_avg_loss_gradient(avg_grad)
+                print(self.vf_fa.params[0])
             episodes += 1
 
         return self.vf_fa.get_func_eval

@@ -67,7 +67,7 @@ class LinearApprox(FuncApproxBase):
     ) -> Sequence[np.ndarray]:
         toeplitz_mat = get_decay_toeplitz_matrix(len(x_vals_seq), gamma_lambda)
         errors = self.get_func_eval_pts(x_vals_seq) - supervisory_seq
-        func_grad = self.get_func_eval_pts(x_vals_seq)
+        func_grad = self.get_feature_vals_pts(x_vals_seq)
         return [errors.dot(toeplitz_mat.dot(func_grad))]
 
 
