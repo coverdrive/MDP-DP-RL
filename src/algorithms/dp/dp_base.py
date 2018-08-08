@@ -1,11 +1,12 @@
-from typing import TypeVar, Mapping
+from typing import TypeVar, Mapping, Set
 from abc import abstractmethod
-from algorithms.opt_base import OptBase
+from algorithms.tabular_base import TabularBase
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
 from processes.mdp import MDP
 from operator import itemgetter
-from algorithms.helper_funcs import get_uniform_policy, get_det_policy_from_qf
+from algorithms.helper_funcs import get_uniform_policy
+from algorithms.helper_funcs import get_det_policy_from_qf_dict
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -13,11 +14,14 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class PlanningBase(OptBase):
+class DPBase(TabularBase):
 
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         self.mdp_obj: MDP = mdp_obj
         self.tol = tol
+
+    def get_state_action_dict(self) -> Mapping[S, Set[A]]:
+        return self.mdp_obj.state_action_dict
 
     def get_init_policy(self) -> Policy:
         return get_uniform_policy(self.mdp_obj.state_action_dict)
@@ -27,7 +31,7 @@ class PlanningBase(OptBase):
         pass
 
     def get_improved_det_policy(self, pol: Policy) -> DetPolicy:
-        return get_det_policy_from_qf(self.get_act_value_func_dict(pol))
+        return get_det_policy_from_qf_dict(self.get_act_value_func_dict(pol))
 
     def get_act_value_func_dict(self, pol: Policy) -> QVFType:
         v_dict = self.get_value_func_dict(pol)

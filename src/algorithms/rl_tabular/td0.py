@@ -1,9 +1,9 @@
 from typing import TypeVar, Mapping, Optional
 from algorithms.td_algo_enum import TDAlgorithm
-from algorithms.rl_tabular.tabular_base import TabularBase
+from algorithms.rl_tabular.rl_tabular_base import RLTabularBase
 from processes.policy import Policy
 from processes.mp_funcs import get_rv_gen_func_single
-from processes.mdp_rep_for_rl_finite_sa import MDPRepForRLFiniteSA
+from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -11,28 +11,28 @@ VFType = Mapping[S, float]
 QVFType = Mapping[S, Mapping[A, float]]
 
 
-class TD0(TabularBase):
+class TD0(RLTabularBase):
 
     def __init__(
             self,
-            mdp_rep_for_rl: MDPRepForRLFiniteSA,
+            mdp_rep_for_rl: MDPRepForRLTabular,
             algorithm: TDAlgorithm,
             softmax: bool,
             epsilon: float,
-            alpha: float,
+            learning_rate: float,
             num_episodes: int,
             max_steps: int
     ) -> None:
 
         super().__init__(
-            mdp_rep_for_rl,
-            softmax,
-            epsilon,
-            num_episodes,
-            max_steps
+            mdp_rep_for_rl=mdp_rep_for_rl,
+            softmax=softmax,
+            epsilon=epsilon,
+            num_episodes=num_episodes,
+            max_steps=max_steps
         )
         self.algorithm: TDAlgorithm = algorithm
-        self.alpha: float = alpha
+        self.learning_rate: float = learning_rate
 
     def get_value_func_dict(self, pol: Policy) -> VFType:
         sa_dict = self.mdp_rep.state_action_dict
@@ -50,13 +50,13 @@ class TD0(TabularBase):
                 action = act_gen_dict[state]()
                 next_state, reward = \
                     self.mdp_rep.state_reward_gen_dict[state][action]()
-                vf_dict[state] += self.alpha * \
+                vf_dict[state] += self.learning_rate * \
                     (reward + self.mdp_rep.gamma * vf_dict[next_state] -
                      vf_dict[state])
-                state = next_state
                 steps += 1
                 terminate = steps >= self.max_steps or \
                     state in self.mdp_rep.terminal_states
+                state = next_state
 
             episodes += 1
 
@@ -91,7 +91,7 @@ class TD0(TabularBase):
                 else:
                     next_qv = qf_dict[next_state][next_action]
 
-                qf_dict[state][action] += self.alpha * \
+                qf_dict[state][action] += self.learning_rate * \
                     (reward + self.mdp_rep.gamma * next_qv -
                      qf_dict[state][action])
                 if control:
@@ -106,11 +106,11 @@ class TD0(TabularBase):
                             qf_dict[state],
                             self.epsilon
                         )
-                state = next_state
-                action = next_action
                 steps += 1
                 terminate = steps >= self.max_steps or \
                     state in self.mdp_rep.terminal_states
+                state = next_state
+                action = next_action
 
             episodes += 1
 
@@ -136,12 +136,12 @@ if __name__ == '__main__':
     }
     gamma_val = 1.0
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
-    mdp_rep_obj = MDPRepForRLFiniteSA(mdp_ref_obj1)
+    mdp_rep_obj = MDPRepForRLTabular(mdp_ref_obj1)
 
     algorithm_type = TDAlgorithm.SARSA
     softmax_flag = True
     epsilon_val = 0.1
-    alpha_val = 0.1
+    learning_rate_val = 0.1
     episodes_limit = 1000
     max_steps_val = 1000
     sarsa_obj = TD0(
@@ -149,7 +149,7 @@ if __name__ == '__main__':
         algorithm_type,
         softmax_flag,
         epsilon_val,
-        alpha_val,
+        learning_rate_val,
         episodes_limit,
         max_steps_val
     )

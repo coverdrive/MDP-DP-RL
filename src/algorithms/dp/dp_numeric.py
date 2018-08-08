@@ -1,5 +1,5 @@
 from typing import TypeVar, Mapping
-from algorithms.planning.planning_base import PlanningBase
+from algorithms.dp.dp_base import DPBase
 from processes.policy import Policy
 from processes.mp_funcs import mdp_rep_to_mrp_rep1, mdp_rep_to_mrp_rep2
 from processes.mdp import MDP
@@ -8,7 +8,7 @@ S = TypeVar('S')
 A = TypeVar('A')
 
 
-class DPNumeric(PlanningBase):
+class DPNumeric(DPBase):
 
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         super().__init__(mdp_obj, tol)
