@@ -5,6 +5,8 @@ import numpy as np
 from processes.policy import Policy
 from processes.mp_funcs import mdp_rep_to_mrp_rep1
 from processes.mrp_refined import MRPRefined
+from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
+from processes.mp_funcs import get_state_reward_gen_dict
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -48,6 +50,17 @@ class MDPRefined(MDP):
             {s: {s1: (v1, rew_ref[s][s1]) for s1, v1 in v.items()}
              for s, v in tr.items()},
             self.gamma
+        )
+
+    def get_mdp_rep_for_rl_tabular(self) -> MDPRepForRLTabular:
+        return MDPRepForRLTabular(
+            state_action_dict=self.state_action_dict,
+            terminal_states=self.terminal_states,
+            state_reward_gen_dict=get_state_reward_gen_dict(
+                self.rewards_refined,
+                self.transitions
+            ),
+            gamma=self.gamma
         )
 
 

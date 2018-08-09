@@ -6,6 +6,7 @@ from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.func_approx_base import FuncApproxBase
 from algorithms.helper_funcs import get_policy_func_for_fa
 from algorithms.helper_funcs import get_uniform_policy_func
+from algorithms.helper_funcs import get_epsilon_decay_func
 from operator import itemgetter
 
 S = TypeVar('S')

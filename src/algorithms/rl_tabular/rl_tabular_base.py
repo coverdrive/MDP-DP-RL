@@ -36,8 +36,6 @@ class RLTabularBase(TabularBase):
         self.num_episodes: int = num_episodes
         self.max_steps: int = max_steps
 
-
-
     def get_state_action_dict(self) -> Mapping[S, Set[A]]:
         return self.mdp_rep.state_action_dict
 

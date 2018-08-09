@@ -171,7 +171,7 @@ if __name__ == '__main__':
     }
     gamma_val = 1.0
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
-    mdp_rep_obj = MDPRepForRLTabular(mdp_ref_obj1)
+    mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
     first_visit_flag = True
     softmax_flag = False

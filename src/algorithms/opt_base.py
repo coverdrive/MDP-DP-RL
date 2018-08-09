@@ -1,7 +1,5 @@
-from typing import TypeVar, Mapping, Callable
+from typing import TypeVar, Callable
 from abc import ABC, abstractmethod
-from processes.policy import Policy
-from processes.det_policy import DetPolicy
 
 S = TypeVar('S')
 A = TypeVar('A')

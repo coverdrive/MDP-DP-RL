@@ -1,6 +1,5 @@
 from typing import NamedTuple, Mapping, Tuple, TypeVar
 from processes.mdp_refined import MDPRefined
-from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
 from processes.det_policy import DetPolicy
 from algorithms.dp.dp_analytic import DPAnalytic
 from algorithms.dp.dp_numeric import DPNumeric
@@ -33,7 +32,7 @@ class RunAllAlgorithms(NamedTuple):
 
     @memoize
     def get_mdp_rep_for_rl_tabular(self):
-        return MDPRepForRLTabular(self.mdp_refined)
+        return self.mdp_refined.get_mdp_rep_for_rl_tabular()
 
     def get_all_algorithms(self) -> Mapping[str, TabularBase]:
         return {

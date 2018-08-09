@@ -111,7 +111,6 @@ class TD0(RLFuncApproxBase):
 
 
 if __name__ == '__main__':
-    from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
     from processes.mdp_refined import MDPRefined
     mdp_refined_data = {
         1: {
@@ -130,7 +129,7 @@ if __name__ == '__main__':
     }
     gamma_val = 1.0
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
-    mdp_rep_obj = MDPRepForRLTabular(mdp_ref_obj1)
+    mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
     algorithm_type = TDAlgorithm.SARSA
     softmax_flag = True
