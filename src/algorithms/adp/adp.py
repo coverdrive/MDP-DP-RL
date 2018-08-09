@@ -12,7 +12,6 @@ from processes.mp_funcs import get_expected_action_value
 from operator import itemgetter
 import numpy as np
 
-
 S = TypeVar('S')
 A = TypeVar('A')
 Type1 = Callable[[S], float]
@@ -30,7 +29,6 @@ class ADP(OptBase):
         epsilon: float,
         epsilon_half_life: float,
         tol: float,
-        learning_rate: float,
         fa_spec: FuncApproxSpec
     ) -> None:
         self.mdp_rep: MDPRepForADP = mdp_rep_for_adp
@@ -41,7 +39,6 @@ class ADP(OptBase):
             epsilon_half_life
         )
         self.tol: float = tol
-        self.learning_rate: float = learning_rate
         self.fa: FuncApproxBase = fa_spec.get_vf_func_approx_obj()
         self.state_action_func: Callable[[S], Set[A]] =\
             self.mdp_rep.state_action_func
@@ -97,7 +94,7 @@ class ADP(OptBase):
             def act_func(a: A, mo=mo, v_func=v_func) -> float:
                 return self.mdp_rep.reward_func(s, a) + mo.gamma *\
                        sum(p * v_func(s1) for s1, p in
-                           self.mdp_rep.transitions_func(s, a))
+                           self.mdp_rep.transitions_func(s, a).items())
 
             return act_func
 
@@ -175,4 +172,93 @@ class ADP(OptBase):
 
 
 if __name__ == '__main__':
-    print(0)
+    from processes.mdp_refined import MDPRefined
+    # from func_approx.dnn_spec import DNNSpec
+
+    mdp_refined_data = {
+        1: {
+            'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
+            'b': {2: (0.3, -0.5), 3: (0.7, 2.6)},
+            'c': {1: (0.8, 14.8), 2: (0.1, -4.9), 3: (0.1, 0.0)}
+        },
+        2: {
+            'a': {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
+            'b': {1: (0.3, 19.8), 2: (0.6, 16.7), 3: (0.1, 1.8)},
+            'c': {1: (0.2, 4.8), 2: (0.4, 9.2), 3: (0.4, -8.2)}
+        },
+        3: {
+            'a': {3: (1.0, 0.0)},
+            'b': {3: (1.0, 0.0)}
+        }
+    }
+    gamma_val = 0.9
+    mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
+    mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_adp()
+
+    num_samples_val = len(mdp_refined_data) * 100
+    softmax_flag = False
+    epsilon_val = 0.1
+    epsilon_half_life_val = 30
+    tol_val = 1e-6
+    fa_spec_val = FuncApproxSpec(
+        state_feature_funcs=[
+            lambda s: 1. if s == 1 else 0.,
+            lambda s: 1. if s == 2 else 0.,
+            lambda s: 1. if s == 3 else 0.
+        ],
+        action_feature_funcs=[],
+        dnn_spec=None
+        # dnn_spec=DNNSpec(
+        #     neurons=[2, 4],
+        #     hidden_activation=DNNSpec.relu,
+        #     hidden_activation_deriv=DNNSpec.relu_deriv
+        # )
+    )
+    adp_obj = ADP(
+        mdp_rep_for_adp=mdp_rep_obj,
+        num_samples=num_samples_val,
+        softmax=softmax_flag,
+        epsilon=epsilon_val,
+        epsilon_half_life=epsilon_half_life_val,
+        tol=tol_val,
+        fa_spec=fa_spec_val
+    )
+
+    def policy_func(i: int) -> Mapping[str, float]:
+        if i == 1:
+            ret = {'a': 0.4, 'b': 0.6}
+        elif i == 2:
+            ret = {'a': 0.7, 'c': 0.3}
+        elif i == 3:
+            ret = {'b': 1.0}
+        else:
+            raise ValueError
+        return ret
+
+
+    this_qf = adp_obj.get_act_value_func_fa(policy_func)
+    this_vf = adp_obj.get_value_func_fa(policy_func)
+    print(this_vf(1))
+    print(this_vf(2))
+    print(this_vf(3))
+
+    # opt_det_polf = adp_obj.get_optimal_det_policy_func()
+    opt_det_polf = adp_obj.get_optimal_policy_func_pi()
+
+    # noinspection PyShadowingNames
+    def opt_polf(s: S, opt_det_polf=opt_det_polf) -> Mapping[A, float]:
+        return {opt_det_polf(s): 1.0}
+
+    print(opt_polf(1))
+    print(opt_polf(2))
+    print(opt_polf(3))
+
+    opt_vf = adp_obj.get_value_func_fa(opt_polf)
+    print(opt_vf(1))
+    print(opt_vf(2))
+    print(opt_vf(3))
+    print("Now getting true values")
+    true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
+    print(true_opt)
+    true_vf = mdp_ref_obj1.get_value_func_dict(true_opt)
+    print(true_vf)
