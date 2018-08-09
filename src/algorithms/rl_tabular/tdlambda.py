@@ -4,6 +4,7 @@ from algorithms.rl_tabular.rl_tabular_base import RLTabularBase
 from processes.policy import Policy
 from processes.mp_funcs import get_rv_gen_func_single
 from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
+from processes.mp_funcs import get_expected_action_value
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -100,10 +101,15 @@ class TDLambda(RLTabularBase):
                     next_qv = max(qf_dict[next_state][a] for a in
                                   qf_dict[next_state])
                 elif self.algorithm == TDAlgorithm.ExpectedSARSA and control:
-                    next_qv = sum(this_pol.get_state_action_probability(
-                        next_state,
-                        a
-                    ) * qf_dict[next_state][a] for a in qf_dict[next_state])
+                    # next_qv = sum(this_pol.get_state_action_probability(
+                    #     next_state,
+                    #     a
+                    # ) * qf_dict[next_state][a] for a in qf_dict[next_state])
+                    next_qv = get_expected_action_value(
+                        qf_dict[next_state],
+                        self.softmax,
+                        self.epsilon_func(episodes)
+                    )
                 else:
                     next_qv = qf_dict[next_state][next_action]
 

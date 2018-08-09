@@ -5,6 +5,7 @@ from algorithms.func_approx_spec import FuncApproxSpec
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from processes.mp_funcs import get_rv_gen_func_single
 from algorithms.helper_funcs import get_soft_policy_func_from_qf
+from processes.mp_funcs import get_expected_action_value
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -83,9 +84,15 @@ class TD0(RLFuncApproxBase):
                     next_qv = max(self.qvf_fa.get_func_eval((next_state, a)) for a in
                                   self.state_action_func(next_state))
                 elif self.algorithm == TDAlgorithm.ExpectedSARSA and control:
-                    next_qv = sum(this_polf(next_state).get(a, 0.) *
-                                  self.qvf_fa.get_func_eval((next_state, a))
-                                  for a in self.state_action_func(next_state))
+                    # next_qv = sum(this_polf(next_state).get(a, 0.) *
+                    #               self.qvf_fa.get_func_eval((next_state, a))
+                    #               for a in self.state_action_func(next_state))
+                    next_qv = get_expected_action_value(
+                        {a: self.qvf_fa.get_func_eval((next_state, a)) for a in
+                         self.state_action_func(next_state)},
+                        self.softmax,
+                        self.epsilon_func(episodes)
+                    )
                 else:
                     next_qv = self.qvf_fa.get_func_eval((next_state, next_action))
 
@@ -131,12 +138,12 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
-    algorithm_type = TDAlgorithm.SARSA
-    softmax_flag = True
+    algorithm_type = TDAlgorithm.ExpectedSARSA
+    softmax_flag = False
     epsilon_val = 0.1
-    epsilon_half_life_val = 100
+    epsilon_half_life_val = 1000
     learning_rate_val = 0.1
-    episodes_limit = 1000
+    episodes_limit = 10000
     max_steps_val = 1000
     fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[lambda s: float(s)],

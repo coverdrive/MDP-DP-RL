@@ -7,6 +7,8 @@ from processes.det_policy import DetPolicy
 from processes.mp_funcs import mdp_rep_to_mrp_rep1, mdp_rep_to_mrp_rep2
 from operator import itemgetter
 from processes.mrp import MRP
+from processes.mp_funcs import get_rv_gen_func
+from processes.mdp_rep_for_adp import MDPRepForADP
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -87,6 +89,19 @@ class MDP(Generic[S, A]):
             epsilon = max(abs(new_vf[s] - v) for s, v in vf.items())
             vf = new_vf
         return pol
+
+    def get_mdp_rep_for_adp(self) -> MDPRepForADP:
+        return MDPRepForADP(
+            state_action_func=lambda s: self.state_action_dict[s],
+            gamma=self.gamma,
+            terminal_state_func=lambda s: s in self.terminal_states,
+            sample_states_gen_func=get_rv_gen_func(
+                {s: 1. / len(self.state_action_dict) for s in
+                 self.state_action_dict.keys()}
+            ),
+            reward_func=lambda s, a: self.rewards[s][a],
+            transitions_func=lambda s, a: self.transitions[s][a]
+        )
 
 
 if __name__ == '__main__':

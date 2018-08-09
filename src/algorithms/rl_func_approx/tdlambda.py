@@ -5,6 +5,7 @@ from algorithms.func_approx_spec import FuncApproxSpec
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from processes.mp_funcs import get_rv_gen_func_single
 from algorithms.helper_funcs import get_soft_policy_func_from_qf
+from processes.mp_funcs import get_expected_action_value
 import numpy as np
 
 S = TypeVar('S')
@@ -78,17 +79,13 @@ class TDLambda(RLFuncApproxBase):
                 state = next_state
 
             if self.offline:
-                print(states)
-                print(targets)
                 avg_grad = [g / len(states) for g in
                             self.vf_fa.get_el_tr_sum_gradient(
                                 states,
                                 targets,
                                 self.gamma_lambda
                             )]
-                print(avg_grad[0])
                 self.vf_fa.update_params_from_avg_loss_gradient(avg_grad)
-                print(self.vf_fa.params[0])
             episodes += 1
 
         return self.vf_fa.get_func_eval
@@ -115,9 +112,15 @@ class TDLambda(RLFuncApproxBase):
                     next_qv = max(self.qvf_fa.get_func_eval((next_state, a)) for a in
                                   self.state_action_func(next_state))
                 elif self.algorithm == TDAlgorithm.ExpectedSARSA and control:
-                    next_qv = sum(this_polf(next_state).get(a, 0.) *
-                                  self.qvf_fa.get_func_eval((next_state, a))
-                                  for a in self.state_action_func(next_state))
+                    # next_qv = sum(this_polf(next_state).get(a, 0.) *
+                    #               self.qvf_fa.get_func_eval((next_state, a))
+                    #               for a in self.state_action_func(next_state))
+                    next_qv = get_expected_action_value(
+                        {a: self.qvf_fa.get_func_eval((next_state, a)) for a in
+                         self.state_action_func(next_state)},
+                        self.softmax,
+                        self.epsilon_func(episodes)
+                    )
                 else:
                     next_qv = self.qvf_fa.get_func_eval((next_state, next_action))
 
@@ -180,12 +183,12 @@ if __name__ == '__main__':
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
     algorithm_type = TDAlgorithm.ExpectedSARSA
-    softmax_flag = True
+    softmax_flag = False
     epsilon_val = 0.1
-    epsilon_half_life_val = 100
+    epsilon_half_life_val = 1000
     learning_rate_val = 0.1
-    lambda_val = 0.2
-    episodes_limit = 1000
+    lambda_val = 0.7
+    episodes_limit = 10000
     max_steps_val = 1000
     offline_val = True
     fa_spec_val = FuncApproxSpec(

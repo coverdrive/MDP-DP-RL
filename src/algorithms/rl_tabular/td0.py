@@ -4,6 +4,7 @@ from algorithms.rl_tabular.rl_tabular_base import RLTabularBase
 from processes.policy import Policy
 from processes.mp_funcs import get_rv_gen_func_single
 from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
+from processes.mp_funcs import get_expected_action_value
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -92,10 +93,15 @@ class TD0(RLTabularBase):
                     next_qv = max(qf_dict[next_state][a] for a in
                                   qf_dict[next_state])
                 elif self.algorithm == TDAlgorithm.ExpectedSARSA and control:
-                    next_qv = sum(this_pol.get_state_action_probability(
-                        next_state,
-                        a
-                    ) * qf_dict[next_state][a] for a in qf_dict[next_state])
+                    # next_qv = sum(this_pol.get_state_action_probability(
+                    #     next_state,
+                    #     a
+                    # ) * qf_dict[next_state][a] for a in qf_dict[next_state])
+                    next_qv = get_expected_action_value(
+                        qf_dict[next_state],
+                        self.softmax,
+                        self.epsilon_func(episodes)
+                    )
                 else:
                     next_qv = qf_dict[next_state][next_action]
 
@@ -148,13 +154,13 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
-    algorithm_type = TDAlgorithm.SARSA
-    softmax_flag = True
+    algorithm_type = TDAlgorithm.ExpectedSARSA
+    softmax_flag = False
     epsilon_val = 0.1
-    epsilon_half_life_val = 100
+    epsilon_half_life_val = 1000
     learning_rate_val = 0.1
     learning_rate_decay_val = 1e6
-    episodes_limit = 1000
+    episodes_limit = 10000
     max_steps_val = 1000
     sarsa_obj = TD0(
         mdp_rep_obj,

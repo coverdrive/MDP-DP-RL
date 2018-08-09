@@ -65,8 +65,8 @@ def mdp_rep_to_mrp_rep1(
     mdp_rep: SASf,
     policy_rep: SAf
 ) -> SSf:
-    return {s: sum_dicts([{s1: policy_rep[s].get(a, 0) * v2 for s1, v2
-                           in v1.items()}
+    return {s: sum_dicts([{s1: policy_rep[s][a] * v2 for s1, v2 in v1.items()
+                           if a in policy_rep[s]}
                           for a, v1 in v.items()]) for s, v in mdp_rep.items()}
 
 
@@ -74,23 +74,59 @@ def mdp_rep_to_mrp_rep2(
     mdp_rep: SAf,
     policy_rep: SAf
 ) -> Mapping[S, float]:
-    return {s: sum([policy_rep[s].get(a, 0) * v1 for a, v1 in v.items()])
+    return {s: sum([policy_rep[s][a] * v1 for a, v1 in v.items()
+                    if a in policy_rep[s]])
             for s, v in mdp_rep.items()}
 
 
-# noinspection PyShadowingNames
+def mdp_func_to_mrp_func1(
+    mdp_rep: Callable[[S, A], Mapping[S, float]],
+    policy_func: Callable[[S], Mapping[A, float]]
+) -> Callable[[S], Mapping[S, float]]:
+
+    # noinspection PyShadowingNames
+    def mrp_func1(
+        s: S,
+        mdp_rep=mdp_rep,
+        policy_func=policy_func
+    ) -> Mapping[S, float]:
+        s_dict = policy_func(s)
+        return sum_dicts([{s1: s_dict[a] * v for s1, v in mdp_rep(s, a).items()}
+                          for a in s_dict])
+
+    return mrp_func1
+
+
+def mdp_func_to_mrp_func2(
+    mdp_rep: Callable[[S, A], float],
+    policy_func: Callable[[S], Mapping[A, float]]
+) -> Callable[[S], float]:
+
+    # noinspection PyShadowingNames
+    def mrp_func2(
+        s: S,
+        mdp_rep=mdp_rep,
+        policy_func=policy_func
+    ) -> float:
+        s_dict = policy_func(s)
+        return sum([s_dict[a] * mdp_rep(s, a) for a in s_dict])
+
+    return mrp_func2
+
+
 def get_rv_gen_func_single(prob_dict: Mapping[S, float])\
         -> Callable[[], S]:
     outcomes, probabilities = zip(*prob_dict.items())
     rvd = rv_discrete(values=(range(len(outcomes)), probabilities))
+    # noinspection PyShadowingNames
     return lambda rvd=rvd, outcomes=outcomes: outcomes[rvd.rvs(size=1)[0]]
 
 
-# noinspection PyShadowingNames
 def get_rv_gen_func(prob_dict: Mapping[S, float])\
         -> Callable[[int], Sequence[S]]:
     outcomes, probabilities = zip(*prob_dict.items())
     rvd = rv_discrete(values=(range(len(outcomes)), probabilities))
+    # noinspection PyShadowingNames
     return lambda n, rvd=rvd, outcomes=outcomes: [outcomes[k]
                                                   for k in rvd.rvs(size=n)]
 
@@ -121,12 +157,14 @@ def get_epsilon_action_probs(
     action_value_dict: Mapping[A, float],
     epsilon: float
 ) -> Mapping[A, float]:
-    return {a: epsilon / len(action_value_dict) +
-            (1. - epsilon if a == max(
-                action_value_dict.items(),
-                key=itemgetter(1)
-            )[0] else 0.)
-            for a in action_value_dict.keys()}
+    max_act = max(action_value_dict.items(), key=itemgetter(1))[0]
+    if epsilon == 0:
+        ret = {max_act: 1.}
+    else:
+        ret = {a: epsilon / len(action_value_dict) +
+               (1. - epsilon if a == max_act else 0.)
+               for a in action_value_dict.keys()}
+    return ret
 
 
 def get_softmax_action_probs(
@@ -136,6 +174,17 @@ def get_softmax_action_probs(
           for a, q in action_value_dict.items()}
     exp_sum = sum(np.exp(q) for q in aq.values())
     return {a: np.exp(q) / exp_sum for a, q in aq.items()}
+
+
+def get_expected_action_value(
+    action_value_dict: Mapping[A, float],
+    softmax: bool,
+    epsilon: float
+) -> float:
+    av = action_value_dict
+    ap = get_softmax_action_probs(av) if softmax else\
+        get_epsilon_action_probs(av, epsilon)
+    return sum(ap.get(a, 0.) * v for a, v in av.items())
 
 
 if __name__ == '__main__':
