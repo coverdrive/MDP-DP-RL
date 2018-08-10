@@ -65,17 +65,16 @@ def mdp_rep_to_mrp_rep1(
     mdp_rep: SASf,
     policy_rep: SAf
 ) -> SSf:
-    return {s: sum_dicts([{s1: policy_rep[s][a] * v2 for s1, v2 in v1.items()
-                           if a in policy_rep[s]}
-                          for a, v1 in v.items()]) for s, v in mdp_rep.items()}
+    return {s: sum_dicts([{s1: p * v2 for s1, v2 in v[a].items()}
+                          for a, p in policy_rep[s].items()])
+            for s, v in mdp_rep.items()}
 
 
 def mdp_rep_to_mrp_rep2(
     mdp_rep: SAf,
     policy_rep: SAf
 ) -> Mapping[S, float]:
-    return {s: sum([policy_rep[s][a] * v1 for a, v1 in v.items()
-                    if a in policy_rep[s]])
+    return {s: sum(p * v[a] for a, p in policy_rep[s].items())
             for s, v in mdp_rep.items()}
 
 
@@ -91,8 +90,8 @@ def mdp_func_to_mrp_func1(
         policy_func=policy_func
     ) -> Mapping[S, float]:
         s_dict = policy_func(s)
-        return sum_dicts([{s1: s_dict[a] * v for s1, v in mdp_rep(s, a).items()}
-                          for a in s_dict])
+        return sum_dicts([{s1: p * v for s1, v in mdp_rep(s, a).items()}
+                          for a, p in s_dict.items()])
 
     return mrp_func1
 
@@ -109,7 +108,7 @@ def mdp_func_to_mrp_func2(
         policy_func=policy_func
     ) -> float:
         s_dict = policy_func(s)
-        return sum([s_dict[a] * mdp_rep(s, a) for a in s_dict])
+        return sum(p * mdp_rep(s, a) for a, p in s_dict.items())
 
     return mrp_func2
 

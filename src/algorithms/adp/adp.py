@@ -9,6 +9,7 @@ from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.func_approx_base import FuncApproxBase
 from processes.mp_funcs import mdp_func_to_mrp_func1, mdp_func_to_mrp_func2
 from processes.mp_funcs import get_expected_action_value
+from copy import deepcopy
 from operator import itemgetter
 import numpy as np
 
@@ -45,23 +46,10 @@ class ADP(OptBase):
 
     @staticmethod
     def get_gradient_max(gradient: Sequence[np.ndarray]) -> float:
-        return max(np.max(g) for g in gradient)
+        return max(np.max(np.abs(g)) for g in gradient)
 
     def get_init_policy_func(self) -> PolicyType:
         return get_uniform_policy_func(self.state_action_func)
-
-    # noinspection PyShadowingNames
-    def get_improved_policy_func(
-        self,
-        polf: PolicyType,
-        epsilon: float
-    ) -> PolicyType:
-        return get_soft_policy_func_from_qf(
-            lambda sa, polf=polf: self.get_act_value_func_fa(polf)(sa[0])(sa[1]),
-            self.state_action_func,
-            self.softmax,
-            epsilon
-        )
 
     def get_value_func_fa(self, polf: PolicyType) -> Type1:
         epsilon = self.tol * 1e4
@@ -81,11 +69,12 @@ class ADP(OptBase):
             )]
             self.fa.update_params_from_avg_loss_gradient(avg_grad)
             epsilon = ADP.get_gradient_max(avg_grad)
-        return lambda s: self.fa.get_func_eval(s)
+
+        return self.fa.get_func_eval
 
     def get_act_value_func_fa(self, polf: PolicyType) -> Type2:
-        mo = self.mdp_rep
         v_func = self.get_value_func_fa(polf)
+        mo = self.mdp_rep
 
         # noinspection PyShadowingNames
         def state_func(s: S, mo=mo, v_func=v_func) -> Callable[[A], float]:
@@ -110,19 +99,31 @@ class ADP(OptBase):
             get_policy_func_for_fa(pol_func, self.state_action_func)
         )
 
+    # noinspection PyShadowingNames
     def get_optimal_policy_func_pi(self) -> Callable[[S], A]:
         this_polf = self.get_init_policy_func()
         eps = self.tol * 1e4
         iters = 0
-        params = self.fa.params
+        params = deepcopy(self.fa.params)
         while eps >= self.tol:
-            g_epsilon = self.epsilon_func(iters)
-            this_polf = self.get_improved_policy_func(this_polf, g_epsilon)
-            new_params = self.fa.params
+            qvf = self.get_act_value_func_fa(this_polf)
+            this_polf = get_soft_policy_func_from_qf(
+                qf=lambda sa, qvf=qvf: qvf(sa[0])(sa[1]),
+                state_action_func=self.state_action_func,
+                softmax=self.softmax,
+                epsilon=self.epsilon_func(iters)
+            )
+            new_params = deepcopy(self.fa.params)
             eps = ADP.get_gradient_max(
                 [new_params[i] - p for i, p in enumerate(params)]
             )
+            params = new_params
             iters += 1
+
+        print("Printing PI Optimal VF")
+        print(self.fa.get_func_eval(1))
+        print(self.fa.get_func_eval(2))
+        print(self.fa.get_func_eval(3))
 
         # noinspection PyShadowingNames
         def det_pol(s: S, this_polf=this_polf) -> A:
@@ -137,6 +138,7 @@ class ADP(OptBase):
         tr_func = self.mdp_rep.transitions_func
         eps = self.tol * 1e4
         iters = 0
+        params = deepcopy(self.fa.params)
         while eps >= self.tol:
             samples = samples_func(self.num_samples)
             values = [get_expected_action_value(
@@ -147,13 +149,18 @@ class ADP(OptBase):
                 self.softmax,
                 self.epsilon_func(iters)
             ) for s in samples]
-            avg_grad = [g / len(samples) for g in self.fa.get_sum_loss_gradient(
-                samples,
-                values
-            )]
-            self.fa.update_params_from_avg_loss_gradient(avg_grad)
-            eps = ADP.get_gradient_max(avg_grad)
+            self.fa.update_params(samples, values)
+            new_params = deepcopy(self.fa.params)
+            eps = ADP.get_gradient_max(
+                [new_params[i] - p for i, p in enumerate(params)]
+            )
+            params = new_params
             iters += 1
+
+        print("Printing VI Optimal VF")
+        print(self.fa.get_func_eval(1))
+        print(self.fa.get_func_eval(2))
+        print(self.fa.get_func_eval(3))
 
         # noinspection PyShadowingNames
         def deter_func(s: S, rew_func=rew_func, tr_func=tr_func) -> A:
@@ -168,7 +175,7 @@ class ADP(OptBase):
         return deter_func
 
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:
-        return self.get_optimal_policy_func_pi()
+        return self.get_optimal_policy_func_vi()
 
 
 if __name__ == '__main__':
@@ -199,7 +206,7 @@ if __name__ == '__main__':
     softmax_flag = False
     epsilon_val = 0.1
     epsilon_half_life_val = 30
-    tol_val = 1e-6
+    tol_val = 1e-4
     fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[
             lambda s: 1. if s == 1 else 0.,
@@ -238,9 +245,16 @@ if __name__ == '__main__':
 
     this_qf = adp_obj.get_act_value_func_fa(policy_func)
     this_vf = adp_obj.get_value_func_fa(policy_func)
+    print("Printing vf for a policy")
     print(this_vf(1))
     print(this_vf(2))
     print(this_vf(3))
+    print("Printing DP vf for a policy")
+    from processes.policy import Policy
+    true_vf_for_pol = mdp_ref_obj1.get_value_func_dict(Policy(
+        {s: policy_func(s) for s in {1, 2, 3}}
+    ))
+    print(true_vf_for_pol)
 
     # opt_det_polf = adp_obj.get_optimal_det_policy_func()
     opt_det_polf = adp_obj.get_optimal_policy_func_pi()
@@ -249,16 +263,19 @@ if __name__ == '__main__':
     def opt_polf(s: S, opt_det_polf=opt_det_polf) -> Mapping[A, float]:
         return {opt_det_polf(s): 1.0}
 
+    print("Printing Opt Policy")
     print(opt_polf(1))
     print(opt_polf(2))
     print(opt_polf(3))
 
     opt_vf = adp_obj.get_value_func_fa(opt_polf)
+    print("Printing Opt VF")
     print(opt_vf(1))
     print(opt_vf(2))
     print(opt_vf(3))
-    print("Now getting true values")
     true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
+    print("Printing DP Opt Policy")
     print(true_opt)
     true_vf = mdp_ref_obj1.get_value_func_dict(true_opt)
+    print("Printing DP Opt VF")
     print(true_vf)

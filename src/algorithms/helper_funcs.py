@@ -82,16 +82,14 @@ def get_soft_policy_func_from_qf(
 ) -> Callable[[S], Mapping[A, float]]:
 
     # noinspection PyShadowingNames
-    def get_act_value_dict_from_state(
+    def sp_func(
         s: S,
         qf=qf,
-        state_action_func=state_action_func
+        state_action_func=state_action_func,
+        softmax=softmax,
+        epsilon=epsilon
     ) -> Mapping[A, float]:
-        return {a: qf((s, a)) for a in state_action_func(s)}
-
-    # noinspection PyShadowingNames
-    def sp_func(s: S, softmax=softmax, epsilon=epsilon) -> Mapping[A, float]:
-        av_dict = get_act_value_dict_from_state(s)
+        av_dict = {a: qf((s, a)) for a in state_action_func(s)}
         return get_softmax_action_probs(av_dict) if softmax else\
             get_epsilon_action_probs(av_dict, epsilon)
 
@@ -112,8 +110,11 @@ def get_policy_func_for_fa(
 ) -> Callable[[S], Mapping[A, float]]:
 
     # noinspection PyShadowingNames
-    def pf(s: S, pol_func=pol_func, state_action_func=state_action_func)\
-            -> Mapping[A, float]:
+    def pf(
+        s: S,
+        pol_func=pol_func,
+        state_action_func=state_action_func
+    ) -> Mapping[A, float]:
         return {a: pol_func(s)(a) for a in state_action_func(s)}
 
     return pf
