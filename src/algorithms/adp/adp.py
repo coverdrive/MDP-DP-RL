@@ -120,11 +120,6 @@ class ADP(OptBase):
             params = new_params
             iters += 1
 
-        print("Printing PI Optimal VF")
-        print(self.fa.get_func_eval(1))
-        print(self.fa.get_func_eval(2))
-        print(self.fa.get_func_eval(3))
-
         # noinspection PyShadowingNames
         def det_pol(s: S, this_polf=this_polf) -> A:
             return max(this_polf(s).items(), key=itemgetter(1))[0]
@@ -156,11 +151,6 @@ class ADP(OptBase):
             )
             params = new_params
             iters += 1
-
-        print("Printing VI Optimal VF")
-        print(self.fa.get_func_eval(1))
-        print(self.fa.get_func_eval(2))
-        print(self.fa.get_func_eval(3))
 
         # noinspection PyShadowingNames
         def deter_func(s: S, rew_func=rew_func, tr_func=tr_func) -> A:
