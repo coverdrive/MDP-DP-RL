@@ -171,9 +171,9 @@ if __name__ == '__main__':
 
     first_visit_flag = True
     softmax_flag = False
-    episodes_limit = 1000
+    episodes_limit = 10000
     epsilon_val = 0.1
-    epsilon_half_life_val = 100
+    epsilon_half_life_val = 1000
     max_steps_val = 1000
     fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[lambda s: float(s)],

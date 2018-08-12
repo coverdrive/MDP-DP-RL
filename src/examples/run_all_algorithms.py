@@ -1,12 +1,17 @@
-from typing import NamedTuple, Mapping, Tuple, TypeVar
+from typing import NamedTuple, Mapping, Tuple, TypeVar, Callable
 from processes.mdp_refined import MDPRefined
 from processes.det_policy import DetPolicy
 from algorithms.dp.dp_analytic import DPAnalytic
 from algorithms.dp.dp_numeric import DPNumeric
-from algorithms.rl_tabular.monte_carlo import MonteCarlo
-from algorithms.rl_tabular.td0 import TD0
-from algorithms.rl_tabular.tdlambda import TDLambda
+from algorithms.adp import adp
+import algorithms.rl_tabular.monte_carlo as mc_tabular
+import algorithms.rl_tabular.td0 as td0_tabular
+import algorithms.rl_tabular.tdlambda as tdl_tabular
+import algorithms.rl_func_approx.monte_carlo as mc_fa
+import algorithms.rl_func_approx.td0 as td0_fa
+import algorithms.rl_func_approx.tdlambda as tdl_fa
 from algorithms.tabular_base import TabularBase
+from algorithms.opt_base import OptBase
 from algorithms.td_algo_enum import TDAlgorithm
 from itertools import groupby
 from utils.gen_utils import memoize
@@ -34,10 +39,11 @@ class RunAllAlgorithms(NamedTuple):
     def get_mdp_rep_for_rl_tabular(self):
         return self.mdp_refined.get_mdp_rep_for_rl_tabular()
 
-    def get_all_algorithms(self) -> Mapping[str, TabularBase]:
+    def get_all_algorithms(self) -> Mapping[str, OptBase]:
         return {
             "DP Analytic": self.get_dp_analytic(),
             "DP Numeric": self.get_dp_numeric(),
+            "ADP": self.get_adp(),
             "Monte Carlo": self.get_monte_carlo(),
             "SARSA": self.get_sarsa(),
             "QLearning": self.get_qlearning(),
@@ -47,16 +53,19 @@ class RunAllAlgorithms(NamedTuple):
             "Expected SARSA Lambda": self.get_expected_sarsa_lambda()
         }
 
-    def get_all_optimal_policies(self) -> Mapping[str, DetPolicy]:
+    def get_all_optimal_policies(self) -> Mapping[str, Callable[[S], A]]:
         return {s: a.get_optimal_det_policy() for s, a in
                 self.get_all_algorithms().items()}
 
-    def get_all_optimal_vf_dicts(self) -> Mapping[str, Mapping[S, float]]:
+    def get_all_optimal_vf_dicts(self) -> Mapping[str, Callable[[S], float]]:
         return {s: a.get_value_func_dict(a.get_optimal_det_policy())
                 for s, a in self.get_all_algorithms().items()}
 
     def get_dp_analytic(self) -> DPAnalytic:
         return DPAnalytic(self.mdp_refined, self.tolerance)
+
+    def get_dp_numeric(self) -> DPNumeric:
+        return DPNumeric(self.mdp_refined, self.tolerance)
 
     def get_dp_numeric(self) -> DPNumeric:
         return DPNumeric(self.mdp_refined, self.tolerance)

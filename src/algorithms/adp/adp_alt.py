@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Callable, Sequence, Set
+from typing import TypeVar, Mapping, Callable, Sequence, Set, Tuple
 from algorithms.helper_funcs import get_uniform_policy_func
 from algorithms.opt_base import OptBase
 from algorithms.helper_funcs import get_policy_func_for_fa
@@ -51,29 +51,38 @@ class ADP(OptBase):
     def get_init_policy_func(self) -> PolicyType:
         return get_uniform_policy_func(self.state_action_func)
 
-    def get_value_func_fa(self, polf: PolicyType) -> Type1:
-        epsilon = self.tol * 1e4
-        mo = self.mdp_rep
-        rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, polf)
-        prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, polf)
-        samples_func = self.mdp_rep.sample_states_gen_func
-        while epsilon >= self.tol:
-            samples = samples_func(self.num_samples)
-            values = [rew_func(s) + mo.gamma *
-                      sum(p * self.fa.get_func_eval(s1) for s1, p in
-                          prob_func(s).items())
-                      for s in samples]
-            avg_grad = [g / len(samples) for g in self.fa.get_sum_loss_gradient(
-                samples,
-                values
-            )]
-            self.fa.update_params_from_avg_loss_gradient(avg_grad)
-            epsilon = ADP.get_gradient_max(avg_grad)
+    def get_value_func_fa(
+        self,
+        polf: PolicyType,
+        update_params: bool
+    ) -> Type1:
+        if update_params:
+            epsilon = self.tol * 1e4
+            mo = self.mdp_rep
+            rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, polf)
+            prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, polf)
+            samples_func = self.mdp_rep.sample_states_gen_func
+            while epsilon >= self.tol:
+                samples = samples_func(self.num_samples)
+                values = [rew_func(s) + mo.gamma *
+                          sum(p * self.fa.get_func_eval(s1) for s1, p in
+                              prob_func(s).items())
+                          for s in samples]
+                avg_grad = [g / len(samples) for g in self.fa.get_sum_loss_gradient(
+                    samples,
+                    values
+                )]
+                self.fa.update_params_from_avg_loss_gradient(avg_grad)
+                epsilon = ADP.get_gradient_max(avg_grad)
 
         return self.fa.get_func_eval
 
-    def get_act_value_func_fa(self, polf: PolicyType) -> Type2:
-        v_func = self.get_value_func_fa(polf)
+    def get_act_value_func_fa(
+        self,
+        polf: PolicyType,
+        update_params: bool
+    ) -> Type2:
+        v_func = self.get_value_func_fa(polf, update_params)
         mo = self.mdp_rep
 
         # noinspection PyShadowingNames
@@ -91,12 +100,14 @@ class ADP(OptBase):
 
     def get_value_func(self, pol_func: Type2) -> Type1:
         return self.get_value_func_fa(
-            get_policy_func_for_fa(pol_func, self.state_action_func)
+            get_policy_func_for_fa(pol_func, self.state_action_func),
+            True
         )
 
     def get_act_value_func(self, pol_func: Type2) -> Type2:
         return self.get_act_value_func_fa(
-            get_policy_func_for_fa(pol_func, self.state_action_func)
+            get_policy_func_for_fa(pol_func, self.state_action_func),
+            True
         )
 
     # noinspection PyShadowingNames
@@ -106,9 +117,14 @@ class ADP(OptBase):
         iters = 0
         params = deepcopy(self.fa.params)
         while eps >= self.tol:
-            qvf = self.get_act_value_func_fa(this_polf)
+            self.get_value_func_fa(this_polf, True)
+            qvf = self.get_act_value_func_fa(this_polf, False)
+
+            def q_func(sa: Tuple[S, A], qvf=qvf) -> float:
+                return qvf(sa[0])(sa[1])
+
             this_polf = get_soft_policy_func_from_qf(
-                qf=lambda sa, qvf=qvf: qvf(sa[0])(sa[1]),
+                qf=q_func,
                 state_action_func=self.state_action_func,
                 softmax=self.softmax,
                 epsilon=self.epsilon_func(iters)
@@ -232,8 +248,8 @@ if __name__ == '__main__':
         return ret
 
 
-    this_qf = adp_obj.get_act_value_func_fa(policy_func)
-    this_vf = adp_obj.get_value_func_fa(policy_func)
+    this_qf = adp_obj.get_act_value_func_fa(policy_func, True)
+    this_vf = adp_obj.get_value_func_fa(policy_func, True)
     print("Printing vf for a policy")
     print(this_vf(1))
     print(this_vf(2))
@@ -256,11 +272,13 @@ if __name__ == '__main__':
     print(opt_polf(2))
     print(opt_polf(3))
 
-    opt_vf = adp_obj.get_value_func_fa(opt_polf)
+    opt_vf = adp_obj.get_value_func_fa(opt_polf, False)
     print("Printing Opt VF")
     print(opt_vf(1))
     print(opt_vf(2))
     print(opt_vf(3))
+
+
     true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
     print("Printing DP Opt Policy")
     print(true_opt)
