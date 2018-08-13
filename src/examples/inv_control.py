@@ -4,6 +4,9 @@ import numpy as np
 from numpy.core.multiarray import ndarray
 from scipy.stats import poisson
 from processes.mdp_refined import MDPRefined
+from func_approx.dnn_spec import DNNSpec
+from func_approx.func_approx_base import FuncApproxBase
+from algorithms.func_approx_spec import FuncApproxSpec
 from copy import deepcopy
 from operator import itemgetter
 from processes.det_policy import DetPolicy
@@ -146,21 +149,35 @@ if __name__ == '__main__':
     )
     valid = ic.validate_spec()
     mdp_ref_obj = ic.get_mdp_refined()
-    this_tolerance = 1e-4
+    this_tolerance = 1e-3
     this_first_visit_mc = True
-    this_softmax = False
-    this_epsilon = 0.2
-    this_epsilon_half_life = 1000
+    num_samples = 30
+    this_softmax = True
+    this_epsilon = 0.05
+    this_epsilon_half_life = 30
     this_learning_rate = 0.1
     this_learning_rate_decay = 1e6
     this_lambd = 0.8
-    this_num_episodes = 10000
+    this_num_episodes = 3000
     this_max_steps = 1000
+    this_tdl_fa_offline = True
+    this_fa_spec = FuncApproxSpec(
+        state_feature_funcs=FuncApproxBase.get_identity_feature_funcs(
+            ic.lead_time + 1
+        ),
+        action_feature_funcs=[lambda x: x],
+        dnn_spec=DNNSpec(
+            neurons=[2, 4],
+            hidden_activation=DNNSpec.relu,
+            hidden_activation_deriv=DNNSpec.relu_deriv
+        )
+    )
 
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,
         tolerance=this_tolerance,
         first_visit_mc=this_first_visit_mc,
+        num_samples=num_samples,
         softmax=this_softmax,
         epsilon=this_epsilon,
         epsilon_half_life=this_epsilon_half_life,
@@ -168,7 +185,9 @@ if __name__ == '__main__':
         learning_rate_decay=this_learning_rate_decay,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
-        max_steps=this_max_steps
+        max_steps=this_max_steps,
+        tdl_fa_offline=this_tdl_fa_offline,
+        fa_spec=this_fa_spec
     )
 
     def criter(x: Tuple[Tuple[int, ...], int]) -> int:
@@ -176,9 +195,10 @@ if __name__ == '__main__':
 
     for st, mo in raa.get_all_algorithms().items():
         print("Starting %s" % st)
-        sas = mo.get_optimal_det_policy().get_state_to_action_map().items()
+        opt_pol_func = mo.get_optimal_det_policy_func()
+        opt_pol = {s: opt_pol_func(s) for s in mdp_ref_obj.all_states}
         print(sorted(
             [(ip, np.mean([float(y) for _, y in v])) for ip, v in
-             groupby(sorted(sas, key=criter), key=criter)],
+             groupby(sorted(opt_pol.items(), key=criter), key=criter)],
             key=itemgetter(0)
         ))

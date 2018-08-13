@@ -1,16 +1,20 @@
 from typing import NamedTuple, Mapping, Tuple, TypeVar, Callable
 from processes.mdp_refined import MDPRefined
-from processes.det_policy import DetPolicy
+from processes.mdp_rep_for_adp import MDPRepForADP
+from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
+from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from algorithms.dp.dp_analytic import DPAnalytic
 from algorithms.dp.dp_numeric import DPNumeric
-from algorithms.adp import adp
+from algorithms.adp.adp import ADP
 import algorithms.rl_tabular.monte_carlo as mc_tabular
 import algorithms.rl_tabular.td0 as td0_tabular
 import algorithms.rl_tabular.tdlambda as tdl_tabular
 import algorithms.rl_func_approx.monte_carlo as mc_fa
 import algorithms.rl_func_approx.td0 as td0_fa
 import algorithms.rl_func_approx.tdlambda as tdl_fa
-from algorithms.tabular_base import TabularBase
+from algorithms.func_approx_spec import FuncApproxSpec
+from func_approx.func_approx_base import FuncApproxBase
+from func_approx.dnn_spec import DNNSpec
 from algorithms.opt_base import OptBase
 from algorithms.td_algo_enum import TDAlgorithm
 from itertools import groupby
@@ -19,6 +23,7 @@ import numpy as np
 from operator import itemgetter
 
 S = TypeVar('S')
+A = TypeVar('A')
 
 
 class RunAllAlgorithms(NamedTuple):
@@ -26,6 +31,7 @@ class RunAllAlgorithms(NamedTuple):
     mdp_refined: MDPRefined
     tolerance: float
     first_visit_mc: bool
+    num_samples: int
     softmax: bool
     epsilon: float
     epsilon_half_life: float
@@ -34,9 +40,19 @@ class RunAllAlgorithms(NamedTuple):
     lambd: float
     num_episodes: int
     max_steps: int
+    tdl_fa_offline: bool
+    fa_spec: FuncApproxSpec
 
     @memoize
-    def get_mdp_rep_for_rl_tabular(self):
+    def get_mdp_rep_for_adp(self) -> MDPRepForADP:
+        return self.mdp_refined.get_mdp_rep_for_adp()
+
+    @memoize
+    def get_mdp_rep_for_rl_tabular(self) -> MDPRepForRLTabular:
+        return self.mdp_refined.get_mdp_rep_for_rl_tabular()
+
+    @memoize
+    def get_mdp_rep_for_rl_fa(self) -> MDPRepForRLFA:
         return self.mdp_refined.get_mdp_rep_for_rl_tabular()
 
     def get_all_algorithms(self) -> Mapping[str, OptBase]:
@@ -44,22 +60,29 @@ class RunAllAlgorithms(NamedTuple):
             "DP Analytic": self.get_dp_analytic(),
             "DP Numeric": self.get_dp_numeric(),
             "ADP": self.get_adp(),
-            "Monte Carlo": self.get_monte_carlo(),
-            "SARSA": self.get_sarsa(),
-            "QLearning": self.get_qlearning(),
-            "Expected SARSA": self.get_expected_sarsa(),
-            "SARSA Lambda": self.get_sarsa_lambda(),
-            "QLearning Lambda": self.get_qlearning_lambda(),
-            "Expected SARSA Lambda": self.get_expected_sarsa_lambda()
+            "Tabular Monte Carlo": self.get_tabular_monte_carlo(),
+            "Tabular SARSA": self.get_tabular_sarsa(),
+            "Tabular QLearning": self.get_tabular_qlearning(),
+            "Tabular Expected SARSA": self.get_tabular_expected_sarsa(),
+            "Tabular SARSA Lambda": self.get_tabular_sarsa_lambda(),
+            "Tabular QLearning Lambda": self.get_tabular_qlearning_lambda(),
+            "Tabular Expected SARSA Lambda": self.get_tabular_expected_sarsa_lambda(),
+            "FuncApprox Monte Carlo": self.get_fa_monte_carlo(),
+            "FuncApprox SARSA": self.get_fa_sarsa(),
+            "FuncApprox QLearning": self.get_fa_qlearning(),
+            "FuncApprox Expected SARSA": self.get_fa_expected_sarsa(),
+            "FuncApprox SARSA Lambda": self.get_fa_sarsa_lambda(),
+            "FuncApprox QLearning Lambda": self.get_fa_qlearning_lambda(),
+            "FuncApprox Expected SARSA Lambda": self.get_fa_expected_sarsa_lambda()
         }
 
     def get_all_optimal_policies(self) -> Mapping[str, Callable[[S], A]]:
-        return {s: a.get_optimal_det_policy() for s, a in
+        return {s: a.get_optimal_det_policy_func() for s, a in
                 self.get_all_algorithms().items()}
 
-    def get_all_optimal_vf_dicts(self) -> Mapping[str, Callable[[S], float]]:
-        return {s: a.get_value_func_dict(a.get_optimal_det_policy())
-                for s, a in self.get_all_algorithms().items()}
+    def get_all_optimal_vfs(self) -> Mapping[str, Callable[[S], float]]:
+        return {s: a.get_optimal_value_func() for s, a in
+                self.get_all_algorithms().items()}
 
     def get_dp_analytic(self) -> DPAnalytic:
         return DPAnalytic(self.mdp_refined, self.tolerance)
@@ -67,11 +90,19 @@ class RunAllAlgorithms(NamedTuple):
     def get_dp_numeric(self) -> DPNumeric:
         return DPNumeric(self.mdp_refined, self.tolerance)
 
-    def get_dp_numeric(self) -> DPNumeric:
-        return DPNumeric(self.mdp_refined, self.tolerance)
+    def get_adp(self) -> ADP:
+        return ADP(
+            self.get_mdp_rep_for_adp(),
+            self.num_samples,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.tolerance,
+            self.fa_spec
+        )
 
-    def get_monte_carlo(self) -> MonteCarlo:
-        return MonteCarlo(
+    def get_tabular_monte_carlo(self) -> mc_tabular.MonteCarlo:
+        return mc_tabular.MonteCarlo(
             self.get_mdp_rep_for_rl_tabular(),
             self.first_visit_mc,
             self.softmax,
@@ -81,8 +112,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_sarsa(self) -> TD0:
-        return TD0(
+    def get_tabular_sarsa(self) -> td0_tabular.TD0:
+        return td0_tabular.TD0(
             self.get_mdp_rep_for_rl_tabular(),
             TDAlgorithm.SARSA,
             self.softmax,
@@ -94,8 +125,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_qlearning(self) -> TD0:
-        return TD0(
+    def get_tabular_qlearning(self) -> td0_tabular.TD0:
+        return td0_tabular.TD0(
             self.get_mdp_rep_for_rl_tabular(),
             TDAlgorithm.QLearning,
             self.softmax,
@@ -107,8 +138,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_expected_sarsa(self) -> TD0:
-        return TD0(
+    def get_tabular_expected_sarsa(self) -> td0_tabular.TD0:
+        return td0_tabular.TD0(
             self.get_mdp_rep_for_rl_tabular(),
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
@@ -120,8 +151,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_sarsa_lambda(self) -> TDLambda:
-        return TDLambda(
+    def get_tabular_sarsa_lambda(self) -> tdl_tabular.TDLambda:
+        return tdl_tabular.TDLambda(
             self.get_mdp_rep_for_rl_tabular(),
             TDAlgorithm.SARSA,
             self.softmax,
@@ -134,8 +165,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_qlearning_lambda(self) -> TDLambda:
-        return TDLambda(
+    def get_tabular_qlearning_lambda(self) -> tdl_tabular.TDLambda:
+        return tdl_tabular.TDLambda(
             self.get_mdp_rep_for_rl_tabular(),
             TDAlgorithm.QLearning,
             self.softmax,
@@ -148,8 +179,8 @@ class RunAllAlgorithms(NamedTuple):
             self.max_steps
         )
 
-    def get_expected_sarsa_lambda(self) -> TDLambda:
-        return TDLambda(
+    def get_tabular_expected_sarsa_lambda(self) -> tdl_tabular.TDLambda:
+        return tdl_tabular.TDLambda(
             self.get_mdp_rep_for_rl_tabular(),
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
@@ -160,6 +191,102 @@ class RunAllAlgorithms(NamedTuple):
             self.lambd,
             self.num_episodes,
             self.max_steps
+        )
+
+    def get_fa_monte_carlo(self) -> mc_fa.MonteCarlo:
+        return mc_fa.MonteCarlo(
+            self.get_mdp_rep_for_rl_fa(),
+            self.first_visit_mc,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec
+        )
+
+    def get_fa_sarsa(self) -> td0_fa.TD0:
+        return td0_fa.TD0(
+            self.get_mdp_rep_for_rl_fa(),
+            TDAlgorithm.SARSA,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.learning_rate,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec
+        )
+
+    def get_fa_qlearning(self) -> td0_fa.TD0:
+        return td0_fa.TD0(
+            self.get_mdp_rep_for_rl_fa(),
+            TDAlgorithm.QLearning,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.learning_rate,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec
+        )
+
+    def get_fa_expected_sarsa(self) -> td0_fa.TD0:
+        return td0_fa.TD0(
+            self.get_mdp_rep_for_rl_fa(),
+            TDAlgorithm.ExpectedSARSA,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.learning_rate,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec
+        )
+
+    def get_fa_sarsa_lambda(self) -> tdl_fa.TDLambda:
+        return tdl_fa.TDLambda(
+            self.get_mdp_rep_for_rl_fa(),
+            TDAlgorithm.SARSA,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.learning_rate,
+            self.lambd,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec,
+            self.tdl_fa_offline
+        )
+
+    def get_fa_qlearning_lambda(self) -> tdl_fa.TDLambda:
+        return tdl_fa.TDLambda(
+            self.get_mdp_rep_for_rl_fa(),
+            TDAlgorithm.QLearning,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.learning_rate,
+            self.lambd,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec,
+            self.tdl_fa_offline
+        )
+
+    def get_fa_expected_sarsa_lambda(self) -> tdl_fa.TDLambda:
+        return tdl_fa.TDLambda(
+            self.get_mdp_rep_for_rl_fa(),
+            TDAlgorithm.ExpectedSARSA,
+            self.softmax,
+            self.epsilon,
+            self.epsilon_half_life,
+            self.learning_rate,
+            self.lambd,
+            self.num_episodes,
+            self.max_steps,
+            self.fa_spec,
+            self.tdl_fa_offline
         )
 
 
@@ -181,21 +308,35 @@ if __name__ == '__main__':
     )
     valid = ic.validate_spec()
     mdp_ref_obj = ic.get_mdp_refined()
-    this_tolerance = 1e-4
+    this_tolerance = 1e-3
     this_first_visit_mc = True
+    num_samples = 30
     this_softmax = True
-    this_epsilon = 0.1
+    this_epsilon = 0.05
     this_epsilon_half_life = 30
     this_learning_rate = 0.1
     this_learning_rate_decay = 1e6
     this_lambd = 0.8
-    this_num_episodes = 300
-    this_max_steps = 100
+    this_num_episodes = 3000
+    this_max_steps = 1000
+    this_tdl_fa_offline = True
+    this_fa_spec = FuncApproxSpec(
+        state_feature_funcs=FuncApproxBase.get_identity_feature_funcs(
+            ic.lead_time + 1
+        ),
+        action_feature_funcs=[lambda x: x],
+        dnn_spec=DNNSpec(
+            neurons=[2, 4],
+            hidden_activation=DNNSpec.relu,
+            hidden_activation_deriv=DNNSpec.relu_deriv
+        )
+    )
 
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,
         tolerance=this_tolerance,
         first_visit_mc=this_first_visit_mc,
+        num_samples=num_samples,
         softmax=this_softmax,
         epsilon=this_epsilon,
         epsilon_half_life=this_epsilon_half_life,
@@ -203,7 +344,9 @@ if __name__ == '__main__':
         learning_rate_decay=this_learning_rate_decay,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
-        max_steps=this_max_steps
+        max_steps=this_max_steps,
+        tdl_fa_offline=this_tdl_fa_offline,
+        fa_spec=this_fa_spec
     )
 
     def crit(x: Tuple[Tuple[int, ...], int]) -> int:
@@ -211,9 +354,10 @@ if __name__ == '__main__':
 
     for st, mo in raa.get_all_algorithms().items():
         print("Starting %s" % st)
-        opt_pol = mo.get_optimal_det_policy().get_state_to_action_map().items()
+        opt_pol_func = mo.get_optimal_det_policy_func()
+        opt_pol = {s: opt_pol_func(s) for s in mdp_ref_obj.all_states}
         print(sorted(
             [(ip, np.mean([float(y) for _, y in v])) for ip, v in
-             groupby(sorted(opt_pol, key=crit), key=crit)],
+             groupby(sorted(opt_pol.items(), key=crit), key=crit)],
             key=itemgetter(0)
         ))

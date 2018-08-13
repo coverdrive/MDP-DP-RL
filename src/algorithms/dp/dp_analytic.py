@@ -2,6 +2,7 @@ from typing import TypeVar, Mapping
 from algorithms.dp.dp_base import DPBase
 from processes.policy import Policy
 from processes.mdp import MDP
+from processes.det_policy import DetPolicy
 
 S = TypeVar('S')
 A = TypeVar('A')
@@ -19,6 +20,9 @@ class DPAnalytic(DPBase):
                  for i in range(len(mrp_obj.nt_states_list))}
         t_vf = {s: 0. for s in self.mdp_obj.terminal_states}
         return {**nt_vf, **t_vf}
+
+    def get_optimal_det_policy(self) -> DetPolicy:
+        return self.get_optimal_policy_pi()
 
 
 if __name__ == '__main__':

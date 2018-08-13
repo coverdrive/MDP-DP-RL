@@ -71,6 +71,7 @@ class DPBase(TabularBase):
         )[0] for s, v in mo.rewards.items()})
         return pol
 
+    @abstractmethod
     def get_optimal_det_policy(self) -> DetPolicy:
-        return self.get_optimal_policy_vi()
+        pass
 

@@ -35,7 +35,7 @@ class TabularBase(OptBase):
     def get_value_func(self, pol_func: Callable[[S], Callable[[A], float]])\
             -> Callable[[S], float]:
         pol = Policy({s: {a: pol_func(s)(a) for a in v}
-                      for s, v in self.get_state_action_dict()})
+                      for s, v in self.get_state_action_dict().items()})
 
         # noinspection PyShadowingNames
         def vf(state: S, pol=pol) -> float:
@@ -46,7 +46,7 @@ class TabularBase(OptBase):
     def get_act_value_func(self, pol_func: Callable[[S], Callable[[A], float]])\
             -> Callable[[S], Callable[[A], float]]:
         pol = Policy({s: {a: pol_func(s)(a) for a in v}
-                      for s, v in self.get_state_action_dict()})
+                      for s, v in self.get_state_action_dict().items()})
 
         # noinspection PyShadowingNames
         def qvf(state: S, pol=pol) -> Callable[[A], float]:

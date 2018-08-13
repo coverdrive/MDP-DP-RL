@@ -1,4 +1,4 @@
-from typing import Sequence, Callable, Tuple, TypeVar, List
+from typing import Sequence, Callable, Tuple, TypeVar, List, Set
 from abc import ABC, abstractmethod
 import numpy as np
 
@@ -29,8 +29,13 @@ class FuncApproxBase(ABC):
             = self.init_adam_caches()
 
     @staticmethod
-    def get_identity_feature_funcs(n: int):
+    def get_identity_feature_funcs(n: int) -> Sequence[Callable[[X], float]]:
         return [(lambda x, i=i: x[i]) for i in range(n)]
+
+    @staticmethod
+    def get_indicator_feature_funcs(values: Set[X])\
+            -> Sequence[Callable[[X], float]]:
+        return [(lambda x, v=v: 1. if x == v else 0.)  for v in values]
 
     def get_feature_vals(self, x_vals: X) -> np.ndarray:
         return np.array([1.] + [f(x_vals) for f in self.feature_funcs])

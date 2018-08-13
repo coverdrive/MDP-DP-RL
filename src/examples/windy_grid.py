@@ -3,6 +3,9 @@ from enum import Enum
 from scipy.stats import norm
 from processes.mdp_refined import MDPRefined
 from processes.det_policy import DetPolicy
+from func_approx.dnn_spec import DNNSpec
+from func_approx.func_approx_base import FuncApproxBase
+from algorithms.func_approx_spec import FuncApproxSpec
 from examples.run_all_algorithms import RunAllAlgorithms
 
 Node = Tuple[int, int]
@@ -167,21 +170,37 @@ if __name__ == '__main__':
     )
     valid = wg.validate_spec()
     mdp_ref_obj = wg.get_mdp_refined()
-    this_tolerance = 1e-4
+    this_tolerance = 1e-3
     this_first_visit_mc = True
+    this_num_samples = 30
     this_softmax = False
-    this_epsilon = 0.2
-    this_epsilon_half_life = 1000
+    this_epsilon = 0.05
+    this_epsilon_half_life = 100
     this_learning_rate = 0.1
     this_learning_rate_decay = 1e6
     this_lambd = 0.8
-    this_num_episodes = 20000
+    this_num_episodes = 10000
     this_max_steps = 1000
+    this_td_offline = True
+    this_fa_spec = FuncApproxSpec(
+        state_feature_funcs=FuncApproxBase.get_indicator_feature_funcs(
+            mdp_ref_obj.all_states
+        ),
+        action_feature_funcs=FuncApproxBase.get_indicator_feature_funcs(
+            {m.name for m in Move}
+        ),
+        dnn_spec=DNNSpec(
+            neurons=[2, 4],
+            hidden_activation=DNNSpec.relu,
+            hidden_activation_deriv=DNNSpec.relu_deriv
+        )
+    )
 
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,
         tolerance=this_tolerance,
         first_visit_mc=this_first_visit_mc,
+        num_samples=this_num_samples,
         softmax=this_softmax,
         epsilon=this_epsilon,
         epsilon_half_life=this_epsilon_half_life,
@@ -189,14 +208,21 @@ if __name__ == '__main__':
         learning_rate_decay=this_learning_rate_decay,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
-        max_steps=this_max_steps
+        max_steps=this_max_steps,
+        tdl_fa_offline=this_td_offline,
+        fa_spec=this_fa_spec
     )
     for name, algo in raa.get_all_algorithms().items():
         print(name)
-        opt_pol = algo.get_optimal_det_policy()
+        opt_pol_func = algo.get_optimal_det_policy_func()
+        opt_pol = DetPolicy({s: opt_pol_func(s) for s in mdp_ref_obj.all_states})
+        opt_vf_func = algo.get_optimal_value_func()
+        opt_vf_dict = {s: opt_vf_func(s) for s in mdp_ref_obj.all_states}
         wg.print_policy(opt_pol)
         chars_count = 5
         decimals_count = 2
+        print()
+        wg.print_vf(opt_vf_dict, chars_count, decimals_count)
         print()
         wg.print_wind_and_bumps(chars_count, decimals_count)
         print()
