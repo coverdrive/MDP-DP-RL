@@ -5,7 +5,12 @@ from scratch (i.e., with no use of standard libraries, except for basic numpy an
  "develop from scratch" goal was motivated by educational purposes - students learning this topic
  can understand the concepts throroughly only when they develop and work with code developed from
  scratch. I teach courses on this topic to a variety of student backgrounds, and each such course
- is big on precise programming implementations of the techniques/algorithms.
+ is big on precise programming implementations of the techniques/algorithms. In particular, I plan
+ to use this codebase to assist with Stanford CME 241: Reinforcement Learning for Stochastic
+ Control Problems in Finance (a course I am teaching at Stanford during Winter 2019).
+ Any feedback on code readability, performance and bugs will be greatly appreciated as the code
+ is still fairly raw and untested in various parts (started working on this code in August 2018,
+ and have mainly been in code-growth mode so far).
  
  The project started by implementing the foundational data structures for finite Markov Processes
  (a.k.a. Markov Chains), Markov Reward Processes (MRP), and Markov Decision Processes (MDP). This was followed by
