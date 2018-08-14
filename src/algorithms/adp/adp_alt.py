@@ -120,6 +120,7 @@ class ADP(OptBase):
             self.get_value_func_fa(this_polf, True)
             qvf = self.get_act_value_func_fa(this_polf, False)
 
+            # noinspection PyShadowingNames
             def q_func(sa: Tuple[S, A], qvf=qvf) -> float:
                 return qvf(sa[0])(sa[1])
 
@@ -223,7 +224,9 @@ if __name__ == '__main__':
         dnn_spec=DNNSpec(
             neurons=[2, 4],
             hidden_activation=DNNSpec.relu,
-            hidden_activation_deriv=DNNSpec.relu_deriv
+            hidden_activation_deriv=DNNSpec.relu_deriv,
+            output_activation=DNNSpec.identity,
+            output_activation_deriv=DNNSpec.identity_deriv
         )
     )
     adp_obj = ADP(
@@ -277,7 +280,6 @@ if __name__ == '__main__':
     print(opt_vf(1))
     print(opt_vf(2))
     print(opt_vf(3))
-
 
     true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
     print("Printing DP Opt Policy")

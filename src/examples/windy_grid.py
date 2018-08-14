@@ -170,7 +170,7 @@ if __name__ == '__main__':
     )
     valid = wg.validate_spec()
     mdp_ref_obj = wg.get_mdp_refined()
-    this_tolerance = 1e-3
+    this_tolerance = 1e-2
     this_first_visit_mc = True
     this_num_samples = 30
     this_softmax = False
@@ -192,7 +192,9 @@ if __name__ == '__main__':
         dnn_spec=DNNSpec(
             neurons=[2, 4],
             hidden_activation=DNNSpec.relu,
-            hidden_activation_deriv=DNNSpec.relu_deriv
+            hidden_activation_deriv=DNNSpec.relu_deriv,
+            output_activation=DNNSpec.identity,
+            output_activation_deriv=DNNSpec.identity_deriv
         )
     )
 

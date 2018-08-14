@@ -35,7 +35,7 @@ class FuncApproxBase(ABC):
     @staticmethod
     def get_indicator_feature_funcs(values: Set[X])\
             -> Sequence[Callable[[X], float]]:
-        return [(lambda x, v=v: 1. if x == v else 0.)  for v in values]
+        return [(lambda x, v=v: 1. if x == v else 0.) for v in values]
 
     def get_feature_vals(self, x_vals: X) -> np.ndarray:
         return np.array([1.] + [f(x_vals) for f in self.feature_funcs])
@@ -56,11 +56,9 @@ class FuncApproxBase(ABC):
     def get_func_eval(self, x_vals: X) -> float:
         pass
 
+    @abstractmethod
     def get_func_eval_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
-        return np.dot(
-            np.vstack(self.get_feature_vals(x) for x in x_vals_seq),
-            self.params[0]
-        )
+        pass
 
     @abstractmethod
     def get_sum_loss_gradient(

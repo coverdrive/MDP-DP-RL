@@ -40,16 +40,21 @@ class LinearApprox(FuncApproxBase):
         This must return a float but lint is not happy, so removed the
         return type annotation
         """
-        return np.dot(self.params[0], self.get_feature_vals(x_vals))
+        return np.dot(self.get_feature_vals(x_vals), self.params[0])
+
+    def get_func_eval_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
+        return np.dot(
+            self.get_feature_vals_pts(x_vals_seq),
+            self.params[0]
+        )
 
     def get_sum_loss_gradient(
             self,
             x_vals_seq: Sequence[X],
             supervisory_seq: Sequence[float]
     ) -> Sequence[np.ndarray]:
-        # all_features = self.get_feature_vals_pts(x_vals_seq)
-        # return [np.dot(np.dot(all_features, self.params[0]) - np.array(supervisory_seq),
-        #               all_features)]
+        # return [np.dot(self.get_func_eval_pts(x_vals_seq) - supervisory_seq,
+        #               self.get_feature_vals_pts(x_vals_seq))]
         return [np.sum((self.get_func_eval(x) - supervisory_seq[i]) * self.get_feature_vals(x)
                        for i, x in enumerate(x_vals_seq))]
 

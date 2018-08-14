@@ -207,7 +207,9 @@ if __name__ == '__main__':
         dnn_spec=DNNSpec(
             neurons=[2, 4],
             hidden_activation=DNNSpec.relu,
-            hidden_activation_deriv=DNNSpec.relu_deriv
+            hidden_activation_deriv=DNNSpec.relu_deriv,
+            output_activation=DNNSpec.identity,
+            output_activation_deriv=DNNSpec.identity_deriv
         )
     )
     adp_obj = ADP(

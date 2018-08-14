@@ -16,27 +16,35 @@ def get_decay_toeplitz_matrix(
 # noinspection PyPep8Naming
 def get_generalized_back_prop(
         dnn_params: Sequence[np.ndarray],
-        layer_inputs: Sequence[np.ndarray],
+        fwd_prop: Sequence[np.ndarray],
         factors: np.ndarray,
-        dObj_dSL: np.ndarray,
+        dObj_dOL: np.ndarray,
         decay_param: float,
-        hidden_activation_deriv: Callable[[np.ndarray], np.ndarray]
+        hidden_activation_deriv: Callable[[np.ndarray], np.ndarray],
+        output_activation_deriv: Callable[[np.ndarray], np.ndarray]
 ) -> Sequence[np.ndarray]:
     """
     :param dnn_params: list (of length L+1) of (|O_L| x |I_L| + 1) 2-D array
-    :param layer_inputs: list (of length L+1) of n x (|I_l| + 1) 2-D arrays
+    :param fwd_prop: list (of length L+2), the first (L+1)elements are
+     n x (|I_l| + 1) 2-D arrays representing the inputs to the (L+1) layers,
+     and the last element is a n x 1 2-D array
     :param factors: 1-D array of length n
-    :param dObj_dSL: 1-D array of length n (representing deriv_L)
+    :param dObj_dOL: 1-D array of length n
     :param decay_param: [0,1] float representing decay in time
     :param hidden_activation_deriv: function representing the derivative
     of the hidden layer activation function (expressed as a function of the
     output of the hidden layer activation function).
-    where L is the number of hidden layers, n is the number of points
-    :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
+    :param output_activation_deriv: function representing the derivative
+    of the output layer activation function (expressed as a function of the
+    output of the output layer activation function).
+    L is the number of hidden layers, n is the number of points
+    :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D arrays,
              i.e., same as the type of self.params
     """
-    # deriv initalized to 1 x n  = |O_L| x n 2-D array
-    deriv = dObj_dSL.reshape(1, -1)
+    output = fwd_prop[-1][:, 0]
+    layer_inputs = fwd_prop[:-1]
+    # deriv initialized to 1 x n  = |O_L| x n 2-D array
+    deriv = (dObj_dOL * output_activation_deriv(output)).reshape(1, -1)
     decay_matrix = get_decay_toeplitz_matrix(len(factors), decay_param)
     back_prop = []
     for l in reversed(range(len(dnn_params))):

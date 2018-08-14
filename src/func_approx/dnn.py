@@ -25,6 +25,10 @@ class DNN(FuncApproxBase):
             = dnn_obj.hidden_activation
         self.hidden_activation_deriv: Callable[[np.ndarray], np.ndarray] \
             = dnn_obj.hidden_activation_deriv
+        self.output_activation: Callable[[np.ndarray], np.ndarray] \
+            = dnn_obj.output_activation
+        self.output_activation_deriv: Callable[[np.ndarray], np.ndarray] \
+            = dnn_obj.output_activation_deriv
         super().__init__(
             feature_funcs,
             reglr_coeff,
@@ -52,40 +56,48 @@ class DNN(FuncApproxBase):
         return [np.zeros_like(p) for p in self.params],\
                [np.zeros_like(p) for p in self.params]
 
-    def get_forward_prop(self, x_vals: X) -> Sequence[np.ndarray]:
+    def get_forward_prop(self, x_vals_seq: Sequence[X]) -> Sequence[np.ndarray]:
         """
-        :param x_vals: a single input point
+        :param x_vals_seq: a n-length-sequence of input points
         :return: list of length (L+2) where the first (L+1) values
-                 each represent the 1-D input arrays (of length |I_l| + 1)
+                 each represent the 2-D input arrays (of size n x |I_l| + 1),
                  for each of the (L+1) layers (L of which are hidden layers),
                  and the last value represents the output of the DNN (as a
-                 1-D array of length 1)
+                 2-D array of length n x 1)
         """
-        inp = self.get_feature_vals(x_vals)
+        inp = self.get_feature_vals_pts(x_vals_seq)
         outputs = [inp]
         for this_params in self.params[:-1]:
-            out = self.hidden_activation(np.dot(this_params, inp))
-            inp = np.insert(out, 0, 1.)
+            out = self.hidden_activation(np.dot(inp, this_params.T))
+            inp = np.insert(out, 0, 1., axis=1)
             outputs.append(inp)
-        outputs.append(np.dot(self.params[-1], inp))
+        outputs.append(self.output_activation(np.dot(inp, self.params[-1].T)))
         return outputs
 
     def get_func_eval(self, x_vals: X) -> float:
-        return self.get_forward_prop(x_vals)[-1][0]
+        return self.get_forward_prop([x_vals])[-1][0, 0]
+
+    def get_func_eval_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
+        return self.get_forward_prop(x_vals_seq)[-1][:, 0]
 
     def get_back_prop(
         self,
-        layer_inputs: Sequence[np.ndarray],
+        fwd_prop: Sequence[np.ndarray],
         errors: np.ndarray
     ) -> Sequence[np.ndarray]:
         """
-        :param layer_inputs: list (of length L+1) of n x (|I_l| + 1) 2-D arrays
-        :param errors: 1-D array of length n
-        where L is the number of hidden layers, n is the number of points
+        :param fwd_prop: list (of length L+2), the first (L+1) elements of which
+        are n x (|I_l| + 1) 2-D arrays representing the inputs to the (L+1) layers,
+        and the last element is a n x 1 2-D array
+        :param errors: 1-D array of length n representing the difference
+        between the outputs of the DNN and the supervisory data.
+        L is the number of hidden layers, n is the number of points
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
         """
-        deriv = errors.reshape(1, -1)
+        outputs = fwd_prop[-1]
+        layer_inputs = fwd_prop[:-1]
+        deriv = (errors.reshape(-1, 1) * self.output_activation_deriv(outputs)).T
         back_prop = []
         # layer l deriv represents dLoss/dS_l where S_l = I_l . params_l
         # (S_l is the result of applying layer l without the activation func)
@@ -118,11 +130,9 @@ class DNN(FuncApproxBase):
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
         """
-        all_fwd_prop = [self.get_forward_prop(x) for x in x_vals_seq]
-        layer_inputs = [np.vstack(x) for x in zip(*all_fwd_prop)][:-1]
-        errors = np.array([x[-1][0] for x in all_fwd_prop]) -\
-            np.array(supervisory_seq)
-        return self.get_back_prop(layer_inputs, errors)
+        fwd_prop = self.get_forward_prop(x_vals_seq)
+        errors = fwd_prop[-1][:, 0] - supervisory_seq
+        return self.get_back_prop(fwd_prop, errors)
 
     def get_sum_func_gradient(
         self,
@@ -133,9 +143,8 @@ class DNN(FuncApproxBase):
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
         """
-        all_fwd_prop = [self.get_forward_prop(x) for x in x_vals_seq]
-        layer_inputs = [np.vstack(x) for x in zip(*all_fwd_prop)][:-1]
-        return self.get_back_prop(layer_inputs, np.ones(len(x_vals_seq)))
+        fwd_prop = self.get_forward_prop(x_vals_seq)
+        return self.get_back_prop(fwd_prop, np.ones(x_vals_seq))
 
     def get_el_tr_sum_gradient(
         self,
@@ -150,17 +159,16 @@ class DNN(FuncApproxBase):
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
         """
-        all_fwd_prop = [self.get_forward_prop(x) for x in x_vals_seq]
-        layer_inputs = [np.vstack(x) for x in zip(*all_fwd_prop)][:-1]
-        errors = np.array([x[-1][0] for x in all_fwd_prop]) - \
-            np.array(supervisory_seq)
+        fwd_prop = self.get_forward_prop(x_vals_seq)
+        errors = fwd_prop[-1][:, 0] - supervisory_seq
         return get_generalized_back_prop(
             dnn_params=self.params,
-            layer_inputs=layer_inputs,
+            fwd_prop=fwd_prop,
             factors=errors,
-            dObj_dSL=np.ones_like(errors),
+            dObj_dOL=np.ones_like(errors),
             decay_param=gamma_lambda,
-            hidden_activation_deriv=self.hidden_activation_deriv
+            hidden_activation_deriv=self.hidden_activation_deriv,
+            output_activation_deriv=self.output_activation_deriv
         )
 
 
@@ -168,7 +176,9 @@ if __name__ == '__main__':
     this_dnn_obj = DNNSpec(
         neurons=[2],
         hidden_activation=DNNSpec.relu,
-        hidden_activation_deriv=DNNSpec.relu_deriv
+        hidden_activation_deriv=DNNSpec.relu_deriv,
+        output_activation=DNNSpec.identity,
+        output_activation_deriv=DNNSpec.identity_deriv
     )
     nn = DNN(
         feature_funcs=FuncApproxBase.get_identity_feature_funcs(3),
