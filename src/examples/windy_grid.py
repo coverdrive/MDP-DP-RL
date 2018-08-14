@@ -170,7 +170,7 @@ if __name__ == '__main__':
     )
     valid = wg.validate_spec()
     mdp_ref_obj = wg.get_mdp_refined()
-    this_tolerance = 1e-2
+    this_tolerance = 1e-3
     this_first_visit_mc = True
     this_num_samples = 30
     this_softmax = False
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     this_learning_rate = 0.1
     this_learning_rate_decay = 1e6
     this_lambd = 0.8
-    this_num_episodes = 10000
+    this_num_episodes = 1000
     this_max_steps = 1000
     this_td_offline = True
     this_fa_spec = FuncApproxSpec(
@@ -189,13 +189,14 @@ if __name__ == '__main__':
         action_feature_funcs=FuncApproxBase.get_indicator_feature_funcs(
             {m.name for m in Move}
         ),
-        dnn_spec=DNNSpec(
-            neurons=[2, 4],
-            hidden_activation=DNNSpec.relu,
-            hidden_activation_deriv=DNNSpec.relu_deriv,
-            output_activation=DNNSpec.identity,
-            output_activation_deriv=DNNSpec.identity_deriv
-        )
+        dnn_spec=None
+        # dnn_spec=DNNSpec(
+        #     neurons=[2, 4],
+        #     hidden_activation=DNNSpec.relu,
+        #     hidden_activation_deriv=DNNSpec.relu_deriv,
+        #     output_activation=DNNSpec.identity,
+        #     output_activation_deriv=DNNSpec.identity_deriv
+        # )
     )
 
     raa = RunAllAlgorithms(
