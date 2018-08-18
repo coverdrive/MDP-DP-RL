@@ -24,7 +24,7 @@ class OptBase(ABC):
     def get_optimal_value_func(self) -> Type1:
         pf = self.get_optimal_det_policy_func()
         return self.get_value_func(
-            lambda s: lambda a, s=s, pf=pf: 1. if a == pf(s) else 0.
+            lambda s, pf=pf: lambda a, s=s, pf=pf: 1. if a == pf(s) else 0.
         )
 
     def get_optimal_act_value_func(self) -> Type1:
