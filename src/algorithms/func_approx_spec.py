@@ -1,11 +1,9 @@
-from typing import Callable, Sequence, NamedTuple, Optional, Tuple, TypeVar
+from typing import Callable, Sequence, NamedTuple, Optional, Tuple
 from func_approx.dnn_spec import DNNSpec
 from func_approx.func_approx_base import FuncApproxBase
 from func_approx.linear_approx import LinearApprox
 from func_approx.dnn import DNN
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.generic_typevars import S, A
 
 
 class FuncApproxSpec(NamedTuple):

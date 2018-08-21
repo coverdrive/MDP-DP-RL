@@ -1,9 +1,8 @@
-from typing import TypeVar, Mapping, Set, Callable, Tuple
+from typing import Mapping, Set, Callable, Tuple
 from processes.mp_funcs import get_rv_gen_func_single
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
+from utils.generic_typevars import S, A
 
-S = TypeVar('S')
-A = TypeVar('A')
 Type1 = Mapping[S, Mapping[A, Callable[[], Tuple[S, float]]]]
 
 

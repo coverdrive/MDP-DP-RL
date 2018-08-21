@@ -69,12 +69,15 @@ class FuncApproxBase(ABC):
         pass
 
     @abstractmethod
-    def get_sum_func_gradient(self, x_vals_seq: Sequence[X])\
-            -> Sequence[np.ndarray]:
+    def get_sum_objective_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        dObj_dOL: np.ndarray
+    ) -> Sequence[np.ndarray]:
         pass
 
     @abstractmethod
-    def get_el_tr_sum_gradient(
+    def get_el_tr_sum_loss_gradient(
         self,
         x_vals_seq: Sequence[X],
         supervisory_seq: Sequence[float],

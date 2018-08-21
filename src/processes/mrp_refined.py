@@ -1,26 +1,24 @@
-from typing import Mapping, TypeVar, Tuple
+from typing import Mapping, Tuple
 from processes.mrp import MRP
 from utils.gen_utils import zip_dict_of_tuple
 import numpy as np
-
-S = TypeVar('S')
-Type1 = Mapping[S, Mapping[S, Tuple[float, float]]]
-Type2 = Mapping[S, Mapping[S, float]]
+from utils.generic_typevars import S
+from utils.standard_typevars import SSf, SSTff
 
 
 class MRPRefined(MRP):
 
     def __init__(
         self,
-        info: Type1,
+        info: SSTff,
         gamma: float
     ) -> None:
         d1, d2, d3 = MRPRefined.split_info(info)
         super().__init__({k: (v, d3[k]) for k, v in d1.items()}, gamma)
-        self.rewards_refined: Type2 = d2
+        self.rewards_refined: SSf = d2
 
     @staticmethod
-    def split_info(info: Type1) -> Tuple[Type2, Type2, Mapping[S, float]]:
+    def split_info(info: SSTff) -> Tuple[SSf, SSf, Mapping[S, float]]:
         d = {k: zip_dict_of_tuple(v) for k, v in info.items()}
         d1, d2 = zip_dict_of_tuple(d)
         d3 = {k: sum(np.prod(x) for x in v.values()) for k, v in info.items()}

@@ -1,10 +1,8 @@
-from typing import Mapping, TypeVar, Generic, Dict
+from typing import Mapping, Generic, Dict
 from processes.mp_funcs import verify_policy
 from processes.mp_funcs import get_epsilon_action_probs
 from processes.mp_funcs import get_softmax_action_probs
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.generic_typevars import S, A
 
 
 class Policy(Generic[S, A]):

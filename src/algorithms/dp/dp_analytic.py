@@ -1,11 +1,8 @@
-from typing import TypeVar, Mapping
 from algorithms.dp.dp_base import DPBase
 from processes.policy import Policy
 from processes.mdp import MDP
 from processes.det_policy import DetPolicy
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.standard_typevars import VFDictType
 
 
 class DPAnalytic(DPBase):
@@ -13,7 +10,7 @@ class DPAnalytic(DPBase):
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         super().__init__(mdp_obj, tol)
 
-    def get_value_func_dict(self, pol: Policy) -> Mapping[S, float]:
+    def get_value_func_dict(self, pol: Policy) -> VFDictType:
         mrp_obj = self.mdp_obj.get_mrp(pol)
         value_func_vec = mrp_obj.get_value_func_vec()
         nt_vf = {mrp_obj.nt_states_list[i]: value_func_vec[i]

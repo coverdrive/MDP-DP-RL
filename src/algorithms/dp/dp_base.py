@@ -7,11 +7,8 @@ from processes.mdp import MDP
 from operator import itemgetter
 from algorithms.helper_funcs import get_uniform_policy
 from algorithms.helper_funcs import get_det_policy_from_qf_dict
-
-S = TypeVar('S')
-A = TypeVar('A')
-VFType = Mapping[S, float]
-QVFType = Mapping[S, Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFDictType, QFDictType
 
 
 class DPBase(TabularBase):
@@ -27,13 +24,13 @@ class DPBase(TabularBase):
         return get_uniform_policy(self.mdp_obj.state_action_dict)
 
     @abstractmethod
-    def get_value_func_dict(self, pol: Policy) -> VFType:
+    def get_value_func_dict(self, pol: Policy) -> VFDictType:
         pass
 
     def get_improved_det_policy(self, pol: Policy) -> DetPolicy:
         return get_det_policy_from_qf_dict(self.get_act_value_func_dict(pol))
 
-    def get_act_value_func_dict(self, pol: Policy) -> QVFType:
+    def get_act_value_func_dict(self, pol: Policy) -> QFDictType:
         v_dict = self.get_value_func_dict(pol)
         mo = self.mdp_obj
         return {s: {a: r + mo.gamma *

@@ -54,7 +54,7 @@ def get_generalized_back_prop(
         # = n tensordot ((n x n) tensordot (n x |O_l| x (|I_l| + 1)))
         # = n tensordot (n x |O_l| x (|I_l| + 1)) = |O_l| x (|I_l| + 1)
         t1 = np.einsum('ij,jk->jik', deriv, layer_inputs[l])
-        if dnn_params:
+        if decay_param != 0:
             t2 = np.tensordot(decay_matrix, t1, axes=1)
         else:
             t2 = t1

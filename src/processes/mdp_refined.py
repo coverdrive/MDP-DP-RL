@@ -1,4 +1,4 @@
-from typing import Mapping, TypeVar, Tuple
+from typing import Tuple
 from utils.gen_utils import zip_dict_of_tuple
 from processes.mdp import MDP
 import numpy as np
@@ -7,18 +7,14 @@ from processes.mp_funcs import mdp_rep_to_mrp_rep1
 from processes.mrp_refined import MRPRefined
 from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
 from processes.mp_funcs import get_state_reward_gen_dict
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Mapping[S, Mapping[A, Mapping[S, Tuple[float, float]]]]
-Type2 = Mapping[S, Mapping[A, Mapping[S, float]]]
+from utils.standard_typevars import SASf, SAf, SASTff
 
 
 class MDPRefined(MDP):
 
     def __init__(
         self,
-        info: Type1,
+        info: SASTff,
         gamma: float
     ) -> None:
         d1, d2, d3 = MDPRefined.split_info(info)
@@ -27,11 +23,10 @@ class MDPRefined(MDP):
              for s, v in d1.items()},
             gamma
         )
-        self.rewards_refined: Type2 = d2
+        self.rewards_refined: SASf = d2
 
     @staticmethod
-    def split_info(info: Type1) -> Tuple[Type2, Type2,
-                                         Mapping[S, Mapping[A, float]]]:
+    def split_info(info: SASTff) -> Tuple[SASf, SASf, SAf]:
         c = {s: {a: zip_dict_of_tuple(v1) for a, v1 in v.items()}
              for s, v in info.items()}
         d = {k: zip_dict_of_tuple(v) for k, v in c.items()}

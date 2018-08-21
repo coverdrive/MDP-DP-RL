@@ -1,15 +1,11 @@
-from typing import TypeVar, Mapping, Optional
+from typing import Optional
 from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_tabular.rl_tabular_base import RLTabularBase
 from processes.policy import Policy
 from processes.mp_funcs import get_rv_gen_func_single
 from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
 from processes.mp_funcs import get_expected_action_value
-
-S = TypeVar('S')
-A = TypeVar('A')
-VFType = Mapping[S, float]
-QVFType = Mapping[S, Mapping[A, float]]
+from utils.standard_typevars import VFDictType, QFDictType
 
 
 class TD0(RLTabularBase):
@@ -39,7 +35,7 @@ class TD0(RLTabularBase):
         self.learning_rate: float = learning_rate
         self.learning_rate_decay: Optional[float] = learning_rate_decay
 
-    def get_value_func_dict(self, pol: Policy) -> VFType:
+    def get_value_func_dict(self, pol: Policy) -> VFDictType:
         sa_dict = self.mdp_rep.state_action_dict
         vf_dict = {s: 0.0 for s in sa_dict.keys()}
         act_gen_dict = {s: get_rv_gen_func_single(pol.get_state_probabilities(s))
@@ -70,7 +66,7 @@ class TD0(RLTabularBase):
 
         return vf_dict
 
-    def get_qv_func_dict(self, pol: Optional[Policy]) -> QVFType:
+    def get_qv_func_dict(self, pol: Optional[Policy]) -> QFDictType:
         control = pol is None
         this_pol = pol if pol is not None else self.get_init_policy()
         sa_dict = self.mdp_rep.state_action_dict

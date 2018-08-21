@@ -49,22 +49,23 @@ class LinearApprox(FuncApproxBase):
         )
 
     def get_sum_loss_gradient(
-            self,
-            x_vals_seq: Sequence[X],
-            supervisory_seq: Sequence[float]
+        self,
+        x_vals_seq: Sequence[X],
+        supervisory_seq: Sequence[float]
     ) -> Sequence[np.ndarray]:
         # return [np.dot(self.get_func_eval_pts(x_vals_seq) - supervisory_seq,
         #               self.get_feature_vals_pts(x_vals_seq))]
         return [np.sum((self.get_func_eval(x) - supervisory_seq[i]) * self.get_feature_vals(x)
                        for i, x in enumerate(x_vals_seq))]
 
-    def get_sum_func_gradient(
-            self,
-            x_vals_seq: Sequence[X]
+    def get_sum_objective_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        dObj_dOL: np.ndarray
     ) -> Sequence[np.ndarray]:
-        return [np.sum(self.get_feature_vals(x) for x in x_vals_seq)]
+        return [np.sum(dObj_dOL * self.get_feature_vals(x) for x in x_vals_seq)]
 
-    def get_el_tr_sum_gradient(
+    def get_el_tr_sum_loss_gradient(
         self,
         x_vals_seq: Sequence[X],
         supervisory_seq: Sequence[float],

@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Optional, Tuple, Sequence
+from typing import Optional, Tuple, Sequence
 from algorithms.rl_tabular.rl_tabular_base import RLTabularBase
 from processes.policy import Policy
 from processes.mp_funcs import get_rv_gen_func_single
@@ -8,11 +8,8 @@ from algorithms.helper_funcs import get_returns_from_rewards_non_terminating
 from algorithms.helper_funcs import get_soft_policy_from_qf_dict
 from algorithms.helper_funcs import get_nt_return_eval_steps
 import numpy as np
-
-S = TypeVar('S')
-A = TypeVar('A')
-VFType = Mapping[S, float]
-QVFType = Mapping[S, Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFDictType, QFDictType
 
 
 class MonteCarlo(RLTabularBase):
@@ -72,7 +69,7 @@ class MonteCarlo(RLTabularBase):
                 state in self.mdp_rep.terminal_states
         return res
 
-    def get_value_func_dict(self, pol: Policy) -> VFType:
+    def get_value_func_dict(self, pol: Policy) -> VFDictType:
         sa_dict = self.mdp_rep.state_action_dict
         counts_dict = {s: 0 for s in sa_dict.keys()}
         vf_dict = {s: 0.0 for s in sa_dict.keys()}
@@ -108,7 +105,7 @@ class MonteCarlo(RLTabularBase):
 
         return vf_dict
 
-    def get_qv_func_dict(self, pol: Optional[Policy]) -> QVFType:
+    def get_qv_func_dict(self, pol: Optional[Policy]) -> QFDictType:
         control = pol is None
         this_pol = pol if pol is not None else self.get_init_policy()
         sa_dict = self.mdp_rep.state_action_dict

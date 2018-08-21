@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Optional, Callable
+from typing import Mapping, Optional
 from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_func_approx.rl_func_approx_base import RLFuncApproxBase
 from algorithms.func_approx_spec import FuncApproxSpec
@@ -6,12 +6,8 @@ from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from processes.mp_funcs import get_rv_gen_func_single
 from algorithms.helper_funcs import get_soft_policy_func_from_qf
 from processes.mp_funcs import get_expected_action_value
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Callable[[S], float]
-Type2 = Callable[[S], Callable[[A], float]]
-PolicyType = Callable[[S], Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFType, QFType, PolicyActDictType
 
 
 class TD0(RLFuncApproxBase):
@@ -41,7 +37,7 @@ class TD0(RLFuncApproxBase):
         self.algorithm: TDAlgorithm = algorithm
         self.learning_rate: float = learning_rate
 
-    def get_value_func_fa(self, polf: PolicyType) -> Type1:
+    def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         episodes = 0
 
         while episodes < self.num_episodes:
@@ -66,7 +62,7 @@ class TD0(RLFuncApproxBase):
         return self.vf_fa.get_func_eval
 
     # noinspection PyShadowingNames
-    def get_qv_func_fa(self, polf: Optional[PolicyType]) -> Type2:
+    def get_qv_func_fa(self, polf: Optional[PolicyActDictType]) -> QFType:
         control = polf is None
         this_polf = polf if polf is not None else self.get_init_policy_func()
         episodes = 0

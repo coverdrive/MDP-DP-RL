@@ -1,15 +1,10 @@
-from typing import Mapping, TypeVar, Set, Tuple, Sequence, Any, Callable
+from typing import Mapping, Set, Tuple, Sequence, Any, Callable
 from utils.gen_utils import memoize, is_approx_eq, sum_dicts
 import numpy as np
 from operator import itemgetter
 from scipy.stats import rv_discrete
-
-S = TypeVar('S')
-A = TypeVar('A')
-SSf = Mapping[S, Mapping[S, float]]
-SAf = Mapping[S, Mapping[A, float]]
-SASf = Mapping[S, Mapping[A, Mapping[S, float]]]
-SATSff = Mapping[S, Mapping[A, Tuple[Mapping[S, float], float]]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import SSf, SAf, SASf, SATSff
 
 
 @memoize
@@ -37,8 +32,9 @@ def verify_transitions(
     tr_seq: Sequence[Mapping[S, float]]
 ) -> bool:
     b1 = set().union(*tr_seq).issubset(states)
-    b2 = all(is_approx_eq(sum(d.values()), 1.0) for d in tr_seq)
-    return b1 and b2
+    b2 = all(all(x >= 0 for x in d.values())for d in tr_seq)
+    b3 = all(is_approx_eq(sum(d.values()), 1.0) for d in tr_seq)
+    return b1 and b2 and b3
 
 
 @memoize

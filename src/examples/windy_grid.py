@@ -174,7 +174,7 @@ if __name__ == '__main__':
     this_first_visit_mc = True
     this_num_samples = 30
     this_softmax = False
-    this_epsilon = 0.05
+    this_epsilon = 0.0
     this_epsilon_half_life = 100
     this_learning_rate = 0.1
     this_learning_rate_decay = 1e6

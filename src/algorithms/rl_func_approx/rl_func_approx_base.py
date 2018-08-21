@@ -1,22 +1,21 @@
-from typing import TypeVar, Callable, Optional, Mapping
+from typing import Callable, Optional
 from abc import abstractmethod
 from algorithms.opt_base import OptBase
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.func_approx_base import FuncApproxBase
-from algorithms.helper_funcs import get_policy_func_for_fa
 from algorithms.helper_funcs import get_uniform_policy_func
 from algorithms.helper_funcs import get_epsilon_decay_func
+from algorithms.helper_funcs import get_pdf_from_samples
 from operator import itemgetter
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Callable[[S], float]
-Type2 = Callable[[S], Callable[[A], float]]
-PolicyType = Callable[[S], Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFType, QFType
+from utils.standard_typevars import PolicyType, PolicyActDictType
 
 
 class RLFuncApproxBase(OptBase):
+
+    NUM_SAMPLES_PER_ACTION = 10
 
     def __init__(
         self,
@@ -41,10 +40,10 @@ class RLFuncApproxBase(OptBase):
         self.qvf_fa: FuncApproxBase = fa_spec.get_qvf_func_approx_obj()
         self.state_action_func = self.mdp_rep.state_action_func
 
-    def get_init_policy_func(self) -> PolicyType:
+    def get_init_policy_func(self) -> PolicyActDictType:
         return get_uniform_policy_func(self.state_action_func)
 
-    def get_value_func_fa(self, polf: PolicyType) -> Type1:
+    def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         qv_func = self.get_qv_func_fa(polf)
 
         # noinspection PyShadowingNames
@@ -54,18 +53,24 @@ class RLFuncApproxBase(OptBase):
 
         return vf
 
-    def get_value_func(self, pol_func: Type2) -> Type1:
+    def get_value_func(self, pol_func: PolicyType) -> VFType:
         return self.get_value_func_fa(
-            get_policy_func_for_fa(pol_func, self.state_action_func)
+            lambda s: get_pdf_from_samples(
+                pol_func(s)(len(self.state_action_func(s)) *
+                            RLFuncApproxBase.NUM_SAMPLES_PER_ACTION)
+            )
         )
 
     @abstractmethod
-    def get_qv_func_fa(self, polf: Optional[PolicyType]) -> Type2:
+    def get_qv_func_fa(self, polf: Optional[PolicyActDictType]) -> QFType:
         pass
 
-    def get_act_value_func(self, pol_func: Type2) -> Type2:
+    def get_act_value_func(self, pol_func: PolicyType) -> QFType:
         return self.get_qv_func_fa(
-            get_policy_func_for_fa(pol_func, self.state_action_func)
+            lambda s: get_pdf_from_samples(
+                pol_func(s)(len(self.state_action_func(s)) *
+                            RLFuncApproxBase.NUM_SAMPLES_PER_ACTION)
+            )
         )
 
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:

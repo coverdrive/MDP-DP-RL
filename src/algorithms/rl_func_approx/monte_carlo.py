@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Optional, Tuple, Sequence, Callable
+from typing import Mapping, Optional, Tuple, Sequence
 from algorithms.rl_func_approx.rl_func_approx_base import RLFuncApproxBase
 from algorithms.func_approx_spec import FuncApproxSpec
 from processes.mp_funcs import get_rv_gen_func_single
@@ -8,12 +8,8 @@ from algorithms.helper_funcs import get_returns_from_rewards_non_terminating
 from algorithms.helper_funcs import get_soft_policy_func_from_qf
 from algorithms.helper_funcs import get_nt_return_eval_steps
 import numpy as np
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Callable[[S], float]
-Type2 = Callable[[S], Callable[[A], float]]
-PolicyType = Callable[[S], Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFType, QFType, PolicyActDictType
 
 
 class MonteCarlo(RLFuncApproxBase):
@@ -48,7 +44,7 @@ class MonteCarlo(RLFuncApproxBase):
 
     def get_mc_path(
         self,
-        polf: PolicyType,
+        polf: PolicyActDictType,
         start_state: S,
         start_action: Optional[A] = None,
     ) -> Sequence[Tuple[S, A, float, bool]]:
@@ -73,7 +69,7 @@ class MonteCarlo(RLFuncApproxBase):
                 self.mdp_rep.terminal_state_func(state)
         return res
 
-    def get_value_func_fa(self, polf: PolicyType) -> Type1:
+    def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         episodes = 0
 
         while episodes < self.num_episodes:
@@ -106,7 +102,7 @@ class MonteCarlo(RLFuncApproxBase):
         return self.vf_fa.get_func_eval
 
     # noinspection PyShadowingNames
-    def get_qv_func_fa(self, polf: Optional[PolicyType]) -> Type2:
+    def get_qv_func_fa(self, polf: Optional[PolicyActDictType]) -> QFType:
         control = polf is None
         this_polf = polf if polf is not None else self.get_init_policy_func()
         episodes = 0

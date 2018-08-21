@@ -1,22 +1,21 @@
-from typing import Mapping, TypeVar, Set, Generic, Sequence
+from typing import Mapping, Set, Generic, Sequence
 from processes.mp_funcs import get_all_states, verify_mp, get_lean_transitions
 import numpy as np
 from scipy.linalg import eig
-
-S = TypeVar('S')
-Transitions = Mapping[S, Mapping[S, float]]
+from utils.generic_typevars import S
+from utils.standard_typevars import SSf
 
 
 class MP(Generic[S]):
 
     def __init__(
         self,
-        tr: Transitions,
+        tr: SSf
     ) -> None:
         if verify_mp(tr):
             self.all_states_list: Sequence[S] = list(get_all_states(tr))
-            self.transitions: Transitions = {s: get_lean_transitions(v)
-                                             for s, v in tr.items()}
+            self.transitions: SSf = {s: get_lean_transitions(v)
+                                     for s, v in tr.items()}
         else:
             raise ValueError
 

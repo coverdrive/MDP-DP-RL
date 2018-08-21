@@ -1,15 +1,15 @@
-from typing import TypeVar, Mapping, Set, Sequence, Optional, Callable, Tuple
+from typing import Mapping, Set, Sequence, Optional, Callable, Tuple
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
 import numpy as np
 from scipy.linalg import toeplitz
+from random import choices
 from operator import itemgetter
+from collections import Counter
 from processes.mp_funcs import get_epsilon_action_probs
 from processes.mp_funcs import get_softmax_action_probs
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Mapping[S, Mapping[A, Mapping[S, float]]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import SAf, PolicyType, PolicyActDictType
 
 
 def get_uniform_policy(state_action_dict: Mapping[S, Set[A]]) -> Policy:
@@ -54,14 +54,13 @@ def get_returns_from_rewards_non_terminating(
     ).dot(rewards)
 
 
-def get_det_policy_from_qf_dict(qf_dict: Mapping[S, Mapping[A, float]])\
-        -> DetPolicy:
+def get_det_policy_from_qf_dict(qf_dict: SAf) -> DetPolicy:
     return DetPolicy({s: max(v.items(), key=itemgetter(1))[0]
                       for s, v in qf_dict.items()})
 
 
 def get_soft_policy_from_qf_dict(
-    qf_dict: Mapping[S, Mapping[A, float]],
+    qf_dict: SAf,
     softmax: bool,
     epsilon: float
 ) -> Policy:
@@ -97,7 +96,7 @@ def get_soft_policy_func_from_qf(
 
 
 def get_vf_dict_from_qf_dict_and_policy(
-    qf_dict: Mapping[S, Mapping[A, float]],
+    qf_dict: SAf,
     pol: Policy
 ) -> Mapping[A, float]:
     return {s: sum(pol.get_state_action_probability(s, a) * q
@@ -158,6 +157,33 @@ def get_epsilon_decay_func(
     return epsilon_decay
 
 
+def get_sampling_func_from_prob_dict(prob_dict: Mapping[A, float])\
+        -> Callable[[int], Sequence[A]]:
+
+    keys, vals = zip(*prob_dict.items())
+
+    # noinspection PyShadowingNames
+    def sampling_func(n: int, keys=keys, vals=vals) -> Sequence[A]:
+        return choices(keys, vals, k=n)
+
+    return sampling_func
+
+
+def get_pdf_from_samples(samples: Sequence[A]) -> Mapping[A, float]:
+    num_samples = len(samples)
+    c = Counter(samples)
+    return {k: v / num_samples for k, v in c.items()}
+
+
+def get_policy_as_action_dict(polf: PolicyType, num_samples: int)\
+        -> PolicyActDictType:
+
+    def pf(s: S) -> Mapping[A, float]:
+        return get_pdf_from_samples(polf(s)(num_samples))
+
+    return pf
+
+
 if __name__ == '__main__':
     rewards_list = [1., 2., 3., 4., 5., 6.]
     gamma_val = 0.9
@@ -173,3 +199,9 @@ if __name__ == '__main__':
         gamma_val
     )
     print(term_returns_list)
+
+    pd = {'a': 0.3, 'b': 0.2, 'c': 0.4, 'd': 0.1}
+    seqf = get_sampling_func_from_prob_dict(pd)
+    seq = seqf(1000)
+    print(seq)
+    print(Counter(seq))

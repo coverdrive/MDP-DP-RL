@@ -1,16 +1,16 @@
-from typing import Mapping, TypeVar, Set, Tuple, Sequence
+from typing import Mapping, Set, Sequence
 from processes.mp import MP
 from utils.gen_utils import zip_dict_of_tuple, is_approx_eq
 import numpy as np
-
-S = TypeVar('S')
+from utils.generic_typevars import S
+from utils.standard_typevars import STSff
 
 
 class MRP(MP):
 
     def __init__(
         self,
-        info: Mapping[S, Tuple[Mapping[S, float], float]],
+        info: STSff,
         gamma: float
     ):
         d1, d2 = zip_dict_of_tuple(info)

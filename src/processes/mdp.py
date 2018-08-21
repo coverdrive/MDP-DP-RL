@@ -1,4 +1,4 @@
-from typing import Mapping, TypeVar, Set, Tuple, Generic
+from typing import Mapping, Set, Tuple, Generic
 from utils.gen_utils import zip_dict_of_tuple, is_approx_eq
 from processes.mp_funcs import get_all_states, get_actions_for_states
 from processes.mp_funcs import verify_mdp, get_lean_transitions
@@ -9,9 +9,7 @@ from operator import itemgetter
 from processes.mrp import MRP
 from processes.mp_funcs import get_rv_gen_func
 from processes.mdp_rep_for_adp import MDPRepForADP
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.generic_typevars import S, A
 
 
 class MDP(Generic[S, A]):
@@ -94,7 +92,6 @@ class MDP(Generic[S, A]):
         return MDPRepForADP(
             state_action_func=lambda s: self.state_action_dict[s],
             gamma=self.gamma,
-            terminal_state_func=lambda s: s in self.terminal_states,
             sample_states_gen_func=get_rv_gen_func(
                 {s: 1. / len(self.state_action_dict) for s in
                  self.state_action_dict.keys()}

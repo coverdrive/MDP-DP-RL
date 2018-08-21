@@ -1,7 +1,6 @@
-from typing import TypeVar, Mapping, Callable, Sequence, Set
+from typing import Mapping, Callable, Sequence, Set
 from algorithms.helper_funcs import get_uniform_policy_func
 from algorithms.opt_base import OptBase
-from algorithms.helper_funcs import get_policy_func_for_fa
 from algorithms.helper_funcs import get_epsilon_decay_func
 from processes.mdp_rep_for_adp import MDPRepForADP
 from algorithms.helper_funcs import get_soft_policy_func_from_qf
@@ -9,18 +8,18 @@ from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.func_approx_base import FuncApproxBase
 from processes.mp_funcs import mdp_func_to_mrp_func1, mdp_func_to_mrp_func2
 from processes.mp_funcs import get_expected_action_value
+from algorithms.helper_funcs import get_pdf_from_samples
 from copy import deepcopy
 from operator import itemgetter
 import numpy as np
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Callable[[S], float]
-Type2 = Callable[[S], Callable[[A], float]]
-PolicyType = Callable[[S], Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFType, QFType
+from utils.standard_typevars import PolicyType, PolicyActDictType
 
 
 class ADP(OptBase):
+
+    NUM_SAMPLES_PER_ACTION = 10
 
     def __init__(
         self,
@@ -48,15 +47,15 @@ class ADP(OptBase):
     def get_gradient_max(gradient: Sequence[np.ndarray]) -> float:
         return max(np.max(np.abs(g)) for g in gradient)
 
-    def get_init_policy_func(self) -> PolicyType:
+    def get_init_policy_func(self) -> PolicyActDictType:
         return get_uniform_policy_func(self.state_action_func)
 
-    def get_value_func_fa(self, polf: PolicyType) -> Type1:
+    def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         epsilon = self.tol * 1e4
         mo = self.mdp_rep
-        rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, polf)
-        prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, polf)
-        samples_func = self.mdp_rep.sample_states_gen_func
+        rew_func = mdp_func_to_mrp_func2(mo.reward_func, polf)
+        prob_func = mdp_func_to_mrp_func1(mo.transitions_func, polf)
+        samples_func = mo.sample_states_gen_func
         while epsilon >= self.tol:
             samples = samples_func(self.num_samples)
             values = [rew_func(s) + mo.gamma *
@@ -72,7 +71,7 @@ class ADP(OptBase):
 
         return self.fa.get_func_eval
 
-    def get_act_value_func_fa(self, polf: PolicyType) -> Type2:
+    def get_act_value_func_fa(self, polf: PolicyActDictType) -> QFType:
         v_func = self.get_value_func_fa(polf)
         mo = self.mdp_rep
 
@@ -81,22 +80,28 @@ class ADP(OptBase):
 
             # noinspection PyShadowingNames
             def act_func(a: A, mo=mo, v_func=v_func) -> float:
-                return self.mdp_rep.reward_func(s, a) + mo.gamma *\
+                return mo.reward_func(s, a) + mo.gamma *\
                        sum(p * v_func(s1) for s1, p in
-                           self.mdp_rep.transitions_func(s, a).items())
+                           mo.transitions_func(s, a).items())
 
             return act_func
 
         return state_func
 
-    def get_value_func(self, pol_func: Type2) -> Type1:
+    def get_value_func(self, pol_func: PolicyType) -> VFType:
         return self.get_value_func_fa(
-            get_policy_func_for_fa(pol_func, self.state_action_func)
+            lambda s: get_pdf_from_samples(
+                pol_func(s)(len(self.state_action_func(s)) *
+                            ADP.NUM_SAMPLES_PER_ACTION)
+            )
         )
 
-    def get_act_value_func(self, pol_func: Type2) -> Type2:
+    def get_act_value_func(self, pol_func: PolicyType) -> QFType:
         return self.get_act_value_func_fa(
-            get_policy_func_for_fa(pol_func, self.state_action_func)
+            lambda s: get_pdf_from_samples(
+                pol_func(s)(len(self.state_action_func(s)) *
+                            ADP.NUM_SAMPLES_PER_ACTION)
+            )
         )
 
     # noinspection PyShadowingNames
@@ -128,9 +133,9 @@ class ADP(OptBase):
 
     def get_optimal_policy_func_vi(self) -> Callable[[S], A]:
         mo = self.mdp_rep
-        samples_func = self.mdp_rep.sample_states_gen_func
-        rew_func = self.mdp_rep.reward_func
-        tr_func = self.mdp_rep.transitions_func
+        samples_func = mo.sample_states_gen_func
+        rew_func = mo.reward_func
+        tr_func = mo.transitions_func
         eps = self.tol * 1e4
         iters = 0
         params = deepcopy(self.fa.params)

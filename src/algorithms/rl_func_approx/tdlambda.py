@@ -1,4 +1,4 @@
-from typing import TypeVar, Mapping, Optional, Callable
+from typing import Mapping, Optional
 from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_func_approx.rl_func_approx_base import RLFuncApproxBase
 from algorithms.func_approx_spec import FuncApproxSpec
@@ -7,12 +7,8 @@ from processes.mp_funcs import get_rv_gen_func_single
 from algorithms.helper_funcs import get_soft_policy_func_from_qf
 from processes.mp_funcs import get_expected_action_value
 import numpy as np
-
-S = TypeVar('S')
-A = TypeVar('A')
-Type1 = Callable[[S], float]
-Type2 = Callable[[S], Callable[[A], float]]
-PolicyType = Callable[[S], Mapping[A, float]]
+from utils.generic_typevars import S, A
+from utils.standard_typevars import VFType, QFType, PolicyActDictType
 
 
 class TDLambda(RLFuncApproxBase):
@@ -46,7 +42,7 @@ class TDLambda(RLFuncApproxBase):
         self.gamma_lambda = self.mdp_rep.gamma * lambd
         self.offline = offline
 
-    def get_value_func_fa(self, polf: PolicyType) -> Type1:
+    def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         episodes = 0
 
         while episodes < self.num_episodes:
@@ -69,7 +65,11 @@ class TDLambda(RLFuncApproxBase):
                     targets.append(target)
                 else:
                     et = [et[i] * self.gamma_lambda + g for i, g in
-                          enumerate(self.vf_fa.get_sum_func_gradient([state]))]
+                          enumerate(self.vf_fa.get_sum_objective_gradient(
+                              [state],
+                              np.ones(1)
+                          )
+                          )]
                     self.vf_fa.update_params_from_avg_loss_gradient(
                         [e * delta for e in et]
                     )
@@ -80,7 +80,7 @@ class TDLambda(RLFuncApproxBase):
 
             if self.offline:
                 avg_grad = [g / len(states) for g in
-                            self.vf_fa.get_el_tr_sum_gradient(
+                            self.vf_fa.get_el_tr_sum_loss_gradient(
                                 states,
                                 targets,
                                 self.gamma_lambda
@@ -91,7 +91,7 @@ class TDLambda(RLFuncApproxBase):
         return self.vf_fa.get_func_eval
 
     # noinspection PyShadowingNames
-    def get_qv_func_fa(self, polf: Optional[PolicyType]) -> Type2:
+    def get_qv_func_fa(self, polf: Optional[PolicyActDictType]) -> QFType:
         control = polf is None
         this_polf = polf if polf is not None else self.get_init_policy_func()
         episodes = 0
@@ -131,7 +131,11 @@ class TDLambda(RLFuncApproxBase):
                     targets.append(target)
                 else:
                     et = [et[i] * self.gamma_lambda + g for i, g in
-                          enumerate(self.qvf_fa.get_sum_func_gradient([(state, action)]))]
+                          enumerate(self.qvf_fa.get_sum_objective_gradient(
+                              [(state, action)],
+                              np.ones(1)
+                          )
+                          )]
                     self.qvf_fa.update_params_from_avg_loss_gradient(
                         [e * delta for e in et]
                     )
@@ -150,7 +154,7 @@ class TDLambda(RLFuncApproxBase):
 
             if self.offline:
                 avg_grad = [g / len(states_actions) for g in
-                            self.qvf_fa.get_el_tr_sum_gradient(
+                            self.qvf_fa.get_el_tr_sum_loss_gradient(
                                 states_actions,
                                 targets,
                                 self.gamma_lambda

@@ -1,8 +1,6 @@
-from typing import Mapping, TypeVar
+from typing import Mapping
 from processes.policy import Policy
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.generic_typevars import S, A
 
 
 class DetPolicy(Policy):

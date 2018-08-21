@@ -1,12 +1,9 @@
-from typing import TypeVar, Mapping
 from algorithms.dp.dp_base import DPBase
 from processes.policy import Policy
 from processes.det_policy import DetPolicy
 from processes.mp_funcs import mdp_rep_to_mrp_rep1, mdp_rep_to_mrp_rep2
 from processes.mdp import MDP
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.standard_typevars import VFDictType
 
 
 class DPNumeric(DPBase):
@@ -14,7 +11,7 @@ class DPNumeric(DPBase):
     def __init__(self, mdp_obj: MDP, tol: float) -> None:
         super().__init__(mdp_obj, tol)
 
-    def get_value_func_dict(self, pol: Policy) -> Mapping[S, float]:
+    def get_value_func_dict(self, pol: Policy) -> VFDictType:
         vf = {s: 0. for s in self.mdp_obj.all_states}
         epsilon = self.tol * 1e4
         mo = self.mdp_obj

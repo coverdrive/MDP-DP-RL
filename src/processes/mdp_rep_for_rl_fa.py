@@ -1,8 +1,6 @@
-from typing import TypeVar, Set, Callable, Tuple, Optional, Generic
+from typing import Set, Callable, Tuple, Optional, Generic
 from processes.mp_funcs import get_rv_gen_func_single
-
-S = TypeVar('S')
-A = TypeVar('A')
+from utils.generic_typevars import S, A
 
 
 class MDPRepForRLFA(Generic[S, A]):

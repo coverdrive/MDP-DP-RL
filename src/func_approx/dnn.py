@@ -83,23 +83,23 @@ class DNN(FuncApproxBase):
     def get_back_prop(
         self,
         fwd_prop: Sequence[np.ndarray],
-        errors: np.ndarray
+        dObj_dOL: np.ndarray
     ) -> Sequence[np.ndarray]:
         """
         :param fwd_prop: list (of length L+2), the first (L+1) elements of which
         are n x (|I_l| + 1) 2-D arrays representing the inputs to the (L+1) layers,
         and the last element is a n x 1 2-D array
-        :param errors: 1-D array of length n representing the difference
-        between the outputs of the DNN and the supervisory data.
+        :param dObj_dOL: 1-D array of length n representing the derivative of
+        objective with respect to the output of the DNN.
         L is the number of hidden layers, n is the number of points
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
         """
         outputs = fwd_prop[-1]
         layer_inputs = fwd_prop[:-1]
-        deriv = (errors.reshape(-1, 1) * self.output_activation_deriv(outputs)).T
+        deriv = (dObj_dOL.reshape(-1, 1) * self.output_activation_deriv(outputs)).T
         back_prop = []
-        # layer l deriv represents dLoss/dS_l where S_l = I_l . params_l
+        # layer l deriv represents dObj/dS_l where S_l = I_l . params_l
         # (S_l is the result of applying layer l without the activation func)
         # deriv_l is a 2-D array of dimension |I_{l+1}| x n = |O_l| x n
         # The recursive formulation of deriv is as follows:
@@ -129,24 +129,31 @@ class DNN(FuncApproxBase):
         :param supervisory_seq: list of n supervisory points
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
+        This function computes the gradient (with respect to w) of
+        Loss(w) = \sum_i (f(x_i; w) - y_i)^2 where f is the DNN func
         """
         fwd_prop = self.get_forward_prop(x_vals_seq)
         errors = fwd_prop[-1][:, 0] - supervisory_seq
         return self.get_back_prop(fwd_prop, errors)
 
-    def get_sum_func_gradient(
+    def get_sum_objective_gradient(
         self,
-        x_vals_seq: Sequence[X]
+        x_vals_seq: Sequence[X],
+        dObj_dOL: np.ndarray
     ) -> Sequence[np.ndarray]:
         """
         :param x_vals_seq: list of n data points (x points)
+        :param dObj_dOL: 1-D array of length n representing the derivative
+        of the objective function with respect to the output of the DNN
         :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
                  i.e., same as the type of self.params
+        This function computes the gradient (with respect to w) of
+        g(w) = \sum_i Obj(f(x_i; w))
         """
         fwd_prop = self.get_forward_prop(x_vals_seq)
-        return self.get_back_prop(fwd_prop, np.ones(x_vals_seq))
+        return self.get_back_prop(fwd_prop, dObj_dOL)
 
-    def get_el_tr_sum_gradient(
+    def get_el_tr_sum_loss_gradient(
         self,
         x_vals_seq: Sequence[X],
         supervisory_seq: Sequence[float],
