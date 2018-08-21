@@ -24,3 +24,11 @@ class DNNSpec(NamedTuple):
     @staticmethod
     def identity_deriv(res: np.ndarray) -> np.ndarray:
         return np.ones_like(res)
+
+    @staticmethod
+    def sigmoid(arg: np.ndarray) -> np.ndarray:
+        return 1. / (1. + np.exp(-arg))
+
+    @staticmethod
+    def sigmoid_deriv(res: np.ndarray) -> np.ndarray:
+        return res * (1. * res)

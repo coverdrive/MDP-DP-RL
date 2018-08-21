@@ -238,7 +238,6 @@ if __name__ == '__main__':
             raise ValueError
         return ret
 
-
     this_qf = adp_obj.get_act_value_func_fa(policy_func)
     this_vf = adp_obj.get_value_func_fa(policy_func)
     print("Printing vf for a policy")

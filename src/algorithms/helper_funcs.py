@@ -3,7 +3,6 @@ from processes.policy import Policy
 from processes.det_policy import DetPolicy
 import numpy as np
 from scipy.linalg import toeplitz
-from random import choices
 from operator import itemgetter
 from collections import Counter
 from processes.mp_funcs import get_epsilon_action_probs
@@ -157,18 +156,6 @@ def get_epsilon_decay_func(
     return epsilon_decay
 
 
-def get_sampling_func_from_prob_dict(prob_dict: Mapping[A, float])\
-        -> Callable[[int], Sequence[A]]:
-
-    keys, vals = zip(*prob_dict.items())
-
-    # noinspection PyShadowingNames
-    def sampling_func(n: int, keys=keys, vals=vals) -> Sequence[A]:
-        return choices(keys, vals, k=n)
-
-    return sampling_func
-
-
 def get_pdf_from_samples(samples: Sequence[A]) -> Mapping[A, float]:
     num_samples = len(samples)
     c = Counter(samples)
@@ -201,6 +188,7 @@ if __name__ == '__main__':
     print(term_returns_list)
 
     pd = {'a': 0.3, 'b': 0.2, 'c': 0.4, 'd': 0.1}
+    from processes.mp_funcs import get_sampling_func_from_prob_dict
     seqf = get_sampling_func_from_prob_dict(pd)
     seq = seqf(1000)
     print(seq)

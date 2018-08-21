@@ -94,6 +94,7 @@ class ADPPolicyGradient(OptBase):
         agf = self.sample_actions_gen_func
         pf = self.get_policy_pdf_params_func()
 
+        # noinspection PyShadowingNames
         def pol(s: S) -> Callable[[int], Sequence[A]]:
             return lambda sps, s=s, pf=pf, agf=agf: agf(pf(s), sps)
 
@@ -131,10 +132,7 @@ class ADPPolicyGradient(OptBase):
                 pol_grads.append(sum(p * r * sc for p, sc, r in prob_score_ret))
 
             avg_value_grad = [g / len(samples) for g in
-                        self.vf_fa.get_sum_loss_gradient(
-                            samples,
-                            values
-                        )]
+                              self.vf_fa.get_sum_loss_gradient(samples, values)]
             self.vf_fa.update_params_from_avg_loss_gradient(avg_value_grad)
 
             pol_grads_arr = np.vstack(pol_grads)
@@ -165,17 +163,17 @@ class ADPPolicyGradient(OptBase):
 if __name__ == '__main__':
     from processes.mdp_refined import MDPRefined
     from func_approx.dnn_spec import DNNSpec
+    from numpy.random import binomial
+    from processes.mp_funcs import get_sampling_func_from_prob_dict
 
     mdp_refined_data = {
         1: {
             'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
-            'b': {2: (0.3, -0.5), 3: (0.7, 2.6)},
-            'c': {1: (0.8, 14.8), 2: (0.1, -4.9), 3: (0.1, 0.0)}
+            'b': {2: (0.3, -0.5), 3: (0.7, 2.6)}
         },
         2: {
             'a': {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
             'b': {1: (0.3, 19.8), 2: (0.6, 16.7), 3: (0.1, 1.8)},
-            'c': {1: (0.2, 4.8), 2: (0.4, 9.2), 3: (0.4, -8.2)}
         },
         3: {
             'a': {3: (1.0, 0.0)},
@@ -204,11 +202,32 @@ if __name__ == '__main__':
             output_activation_deriv=DNNSpec.identity_deriv
         )
     )
+    pol_fa_spec_val = [FuncApproxSpec(
+        state_feature_funcs=[
+            lambda s: 1. if s == 1 else 0.,
+            lambda s: 1. if s == 2 else 0.,
+            lambda s: 1. if s == 3 else 0.
+        ],
+        action_feature_funcs=[],
+        dnn_spec=DNNSpec(
+            neurons=[2, 4],
+            hidden_activation=DNNSpec.relu,
+            hidden_activation_deriv=DNNSpec.relu_deriv,
+            output_activation=DNNSpec.sigmoid,
+            output_activation_deriv=DNNSpec.sigmoid_deriv
+        )
+    )]
+    # noinspection PyPep8
+    this_score_func = lambda a, p: [1. / p[0] if a == 'a' else 1. / (p[0] - 1.)]
+    # noinspection PyPep8
+    sa_gen_func = lambda p, n: [('a' if x == 1 else 'b') for x in binomial(1, p[0], n)]
     adp_pg_obj = ADPPolicyGradient(
-        mdp_rep_for_adp=mdp_rep_obj,
+        mdp_rep_for_adp_pg=mdp_rep_obj,
         num_state_samples=num_state_samples_val,
         num_action_samples=num_action_samples_val,
         tol=tol_val,
+        score_func=this_score_func,
+        sample_actions_gen_func=sa_gen_func,
         vf_fa_spec=vf_fa_spec_val,
         pol_fa_spec=pol_fa_spec_val
     )
@@ -224,9 +243,11 @@ if __name__ == '__main__':
             raise ValueError
         return ret
 
+    def pf_as_policy_type(i: int) -> Callable[[int], Sequence[str]]:
+        return get_sampling_func_from_prob_dict(policy_func(i))
 
-    this_qf = adp_pg_obj.get_act_value_func_fa(policy_func)
-    this_vf = adp_pg_obj.get_value_func_fa(policy_func)
+    this_qf = adp_pg_obj.get_act_value_func(pf_as_policy_type)
+    this_vf = adp_pg_obj.get_value_func(pf_as_policy_type)
     print("Printing vf for a policy")
     print(this_vf(1))
     print(this_vf(2))
@@ -238,7 +259,7 @@ if __name__ == '__main__':
     ))
     print(true_vf_for_pol)
 
-    opt_det_polf = adp_pg_obj.get_optimal_policy_func_vi()
+    opt_det_polf = adp_pg_obj.get_optimal_det_policy_func()
 
     # noinspection PyShadowingNames
     def opt_polf(s: S, opt_det_polf=opt_det_polf) -> Mapping[A, float]:
@@ -249,7 +270,7 @@ if __name__ == '__main__':
     print(opt_polf(2))
     print(opt_polf(3))
 
-    opt_vf = adp_pg_obj.get_value_func_fa(opt_polf)
+    opt_vf = adp_pg_obj.get_value_func(adp_pg_obj.get_policy_as_policy_type())
     print("Printing Opt VF")
     print(opt_vf(1))
     print(opt_vf(2))

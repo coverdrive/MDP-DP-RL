@@ -1,6 +1,7 @@
 from typing import Mapping, Set, Tuple, Sequence, Any, Callable
 from utils.gen_utils import memoize, is_approx_eq, sum_dicts
 import numpy as np
+from random import choices
 from operator import itemgetter
 from scipy.stats import rv_discrete
 from utils.generic_typevars import S, A
@@ -180,6 +181,18 @@ def get_expected_action_value(
     ap = get_softmax_action_probs(av) if softmax else\
         get_epsilon_action_probs(av, epsilon)
     return sum(ap.get(a, 0.) * v for a, v in av.items())
+
+
+def get_sampling_func_from_prob_dict(prob_dict: Mapping[A, float])\
+        -> Callable[[int], Sequence[A]]:
+
+    keys, vals = zip(*prob_dict.items())
+
+    # noinspection PyShadowingNames
+    def sampling_func(n: int, keys=keys, vals=vals) -> Sequence[A]:
+        return choices(keys, vals, k=n)
+
+    return sampling_func
 
 
 if __name__ == '__main__':
