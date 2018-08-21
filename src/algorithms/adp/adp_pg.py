@@ -236,7 +236,7 @@ if __name__ == '__main__':
         if i == 1:
             ret = {'a': 0.4, 'b': 0.6}
         elif i == 2:
-            ret = {'a': 0.7, 'c': 0.3}
+            ret = {'a': 0.7, 'b': 0.3}
         elif i == 3:
             ret = {'b': 1.0}
         else:
