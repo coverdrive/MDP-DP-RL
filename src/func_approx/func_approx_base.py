@@ -68,6 +68,7 @@ class FuncApproxBase(ABC):
     ) -> Sequence[np.ndarray]:
         pass
 
+    # noinspection PyPep8Naming
     @abstractmethod
     def get_sum_objective_gradient(
         self,

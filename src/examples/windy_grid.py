@@ -3,7 +3,6 @@ from enum import Enum
 from scipy.stats import norm
 from processes.mdp_refined import MDPRefined
 from processes.det_policy import DetPolicy
-from func_approx.dnn_spec import DNNSpec
 from func_approx.func_approx_base import FuncApproxBase
 from algorithms.func_approx_spec import FuncApproxSpec
 from examples.run_all_algorithms import RunAllAlgorithms

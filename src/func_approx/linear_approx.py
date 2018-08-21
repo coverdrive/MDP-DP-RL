@@ -58,6 +58,7 @@ class LinearApprox(FuncApproxBase):
         return [np.sum((self.get_func_eval(x) - supervisory_seq[i]) * self.get_feature_vals(x)
                        for i, x in enumerate(x_vals_seq))]
 
+    # noinspection PyPep8Naming
     def get_sum_objective_gradient(
         self,
         x_vals_seq: Sequence[X],

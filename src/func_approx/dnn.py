@@ -80,6 +80,7 @@ class DNN(FuncApproxBase):
     def get_func_eval_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
         return self.get_forward_prop(x_vals_seq)[-1][:, 0]
 
+    # noinspection PyPep8Naming
     def get_back_prop(
         self,
         fwd_prop: Sequence[np.ndarray],
@@ -136,6 +137,7 @@ class DNN(FuncApproxBase):
         errors = fwd_prop[-1][:, 0] - supervisory_seq
         return self.get_back_prop(fwd_prop, errors)
 
+    # noinspection PyPep8Naming
     def get_sum_objective_gradient(
         self,
         x_vals_seq: Sequence[X],
