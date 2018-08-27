@@ -70,7 +70,7 @@ class TDLambda(RLFuncApproxBase):
                               np.ones(1)
                           )
                           )]
-                    self.vf_fa.update_params_from_avg_loss_gradient(
+                    self.vf_fa.update_params_from_gradient(
                         [e * delta for e in et]
                     )
                 steps += 1
@@ -85,7 +85,7 @@ class TDLambda(RLFuncApproxBase):
                                 targets,
                                 self.gamma_lambda
                             )]
-                self.vf_fa.update_params_from_avg_loss_gradient(avg_grad)
+                self.vf_fa.update_params_from_gradient(avg_grad)
             episodes += 1
 
         return self.vf_fa.get_func_eval
@@ -136,7 +136,7 @@ class TDLambda(RLFuncApproxBase):
                               np.ones(1)
                           )
                           )]
-                    self.qvf_fa.update_params_from_avg_loss_gradient(
+                    self.qvf_fa.update_params_from_gradient(
                         [e * delta for e in et]
                     )
                 if control:
@@ -159,7 +159,7 @@ class TDLambda(RLFuncApproxBase):
                                 targets,
                                 self.gamma_lambda
                             )]
-                self.qvf_fa.update_params_from_avg_loss_gradient(avg_grad)
+                self.qvf_fa.update_params_from_gradient(avg_grad)
             episodes += 1
 
         return lambda st: lambda act, st=st: self.qvf_fa.get_func_eval((st, act))

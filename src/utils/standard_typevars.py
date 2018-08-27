@@ -35,7 +35,7 @@ the dictionary with a function.
 
 QFDictType (= Mapping[S, Mapping[A, float]) is the type that represents an
 action value function (or Q function) for a finite set of states and actions.
-Hence, it is represented as a data structure rather than a function.
+Hence, it is represented as a data structure rather than as a function.
 One can always produce a QFType from a QFDictType by wrapping the dictionary
 of dictionaries with a function returning a function.
 

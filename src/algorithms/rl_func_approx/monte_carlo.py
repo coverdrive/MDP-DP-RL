@@ -46,7 +46,7 @@ class MonteCarlo(RLFuncApproxBase):
         self,
         polf: PolicyActDictType,
         start_state: S,
-        start_action: Optional[A] = None,
+        start_action: Optional[A] = None
     ) -> Sequence[Tuple[S, A, float, bool]]:
 
         res = []

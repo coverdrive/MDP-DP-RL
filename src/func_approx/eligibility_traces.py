@@ -17,8 +17,8 @@ def get_decay_toeplitz_matrix(
 def get_generalized_back_prop(
         dnn_params: Sequence[np.ndarray],
         fwd_prop: Sequence[np.ndarray],
-        factors: np.ndarray,
         dObj_dOL: np.ndarray,
+        factors: np.ndarray,
         decay_param: float,
         hidden_activation_deriv: Callable[[np.ndarray], np.ndarray],
         output_activation_deriv: Callable[[np.ndarray], np.ndarray]
@@ -28,8 +28,8 @@ def get_generalized_back_prop(
     :param fwd_prop: list (of length L+2), the first (L+1)elements are
      n x (|I_l| + 1) 2-D arrays representing the inputs to the (L+1) layers,
      and the last element is a n x 1 2-D array
-    :param factors: 1-D array of length n
     :param dObj_dOL: 1-D array of length n
+    :param factors: 1-D array of length n
     :param decay_param: [0,1] float representing decay in time
     :param hidden_activation_deriv: function representing the derivative
     of the hidden layer activation function (expressed as a function of the

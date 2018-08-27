@@ -173,8 +173,37 @@ class DNN(FuncApproxBase):
         return get_generalized_back_prop(
             dnn_params=self.params,
             fwd_prop=fwd_prop,
-            factors=errors,
             dObj_dOL=np.ones_like(errors),
+            factors=errors,
+            decay_param=gamma_lambda,
+            hidden_activation_deriv=self.hidden_activation_deriv,
+            output_activation_deriv=self.output_activation_deriv
+        )
+
+    # noinspection PyPep8Naming
+    def get_el_tr_sum_objective_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        dObj_dOL: np.ndarray,
+        factors: np.ndarray,
+        gamma_lambda: float
+    ) -> Sequence[np.ndarray]:
+        """
+        :param x_vals_seq: list of n data points (x points)
+        :param dObj_dOL: 1-D array of length n representing the derivative
+        of the objective function with respect to the output of the DNN
+        :param factors: 1-D array of length n representing the factors
+        to be multiplied to dObjective/dparam across the n points
+        :param gamma_lambda: decay discount factor
+        :return: list (of length L+1) of |O_l| x (|I_l| + 1) 2-D array,
+                 i.e., same as the type of self.params
+        """
+        fwd_prop = self.get_forward_prop(x_vals_seq)
+        return get_generalized_back_prop(
+            dnn_params=self.params,
+            fwd_prop=fwd_prop,
+            dObj_dOL=dObj_dOL,
+            factors=factors,
             decay_param=gamma_lambda,
             hidden_activation_deriv=self.hidden_activation_deriv,
             output_activation_deriv=self.output_activation_deriv

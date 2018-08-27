@@ -86,6 +86,17 @@ class FuncApproxBase(ABC):
     ) -> Sequence[np.ndarray]:
         pass
 
+    # noinspection PyPep8Naming
+    @abstractmethod
+    def get_el_tr_sum_objective_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        dObj_dOL: np.ndarray,
+        factors: np.ndarray,
+        gamma_lambda: float
+    ) -> Sequence[np.ndarray]:
+        pass
+
     def update_params(
         self,
         x_vals_seq: Sequence[X],
@@ -93,14 +104,14 @@ class FuncApproxBase(ABC):
     ) -> None:
         avg_loss_gradient = [g / len(x_vals_seq) for g in
                              self.get_sum_loss_gradient(x_vals_seq, supervisory_seq)]
-        self.update_params_from_avg_loss_gradient(avg_loss_gradient)
+        self.update_params_from_gradient(avg_loss_gradient)
 
-    def update_params_from_avg_loss_gradient(
+    def update_params_from_gradient(
         self,
-        avg_loss_gradient: Sequence[np.ndarray]
+        gradient: Sequence[np.ndarray]
     ) -> None:
         for l in range(len(self.params)):
-            g = avg_loss_gradient[l] + self.reglr_coeff * self.params[l]
+            g = gradient[l] + self.reglr_coeff * self.params[l]
             if self.adam:
                 self.adam_caches[0][l] = self.adam_decay1 * self.adam_caches[0][l] +\
                     (1 - self.adam_decay1) * g

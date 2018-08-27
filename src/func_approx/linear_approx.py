@@ -64,7 +64,7 @@ class LinearApprox(FuncApproxBase):
         x_vals_seq: Sequence[X],
         dObj_dOL: np.ndarray
     ) -> Sequence[np.ndarray]:
-        return [np.sum(dObj_dOL * self.get_feature_vals(x) for x in x_vals_seq)]
+        return [dObj_dOL.dot(self.get_feature_vals_pts(x_vals_seq))]
 
     def get_el_tr_sum_loss_gradient(
         self,
@@ -76,6 +76,18 @@ class LinearApprox(FuncApproxBase):
         errors = self.get_func_eval_pts(x_vals_seq) - supervisory_seq
         func_grad = self.get_feature_vals_pts(x_vals_seq)
         return [errors.dot(toeplitz_mat.dot(func_grad))]
+
+    # noinspection PyPep8Naming
+    def get_el_tr_sum_objective_gradient(
+        self,
+        x_vals_seq: Sequence[X],
+        dObj_dOL: np.ndarray,
+        factors: np.ndarray,
+        gamma_lambda: float
+    ) -> Sequence[np.ndarray]:
+        toep = get_decay_toeplitz_matrix(len(x_vals_seq), gamma_lambda)
+        features = self.get_feature_vals_pts(x_vals_seq)
+        return [factors.dot(toep.dot(np.diag(dObj_dOL).dot(features)))]
 
 
 if __name__ == '__main__':

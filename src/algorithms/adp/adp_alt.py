@@ -72,7 +72,7 @@ class ADP(OptBase):
                     samples,
                     values
                 )]
-                self.fa.update_params_from_avg_loss_gradient(avg_grad)
+                self.fa.update_params_from_gradient(avg_grad)
                 epsilon = ADP.get_gradient_max(avg_grad)
 
         return self.fa.get_func_eval

@@ -1,4 +1,4 @@
-from typing import Mapping, Callable, Sequence
+from typing import Mapping, Callable, Sequence, Tuple
 from algorithms.opt_base import OptBase
 from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from algorithms.func_approx_spec import FuncApproxSpec
@@ -6,23 +6,26 @@ from func_approx.func_approx_base import FuncApproxBase
 from processes.mp_funcs import mdp_func_to_mrp_func1, mdp_func_to_mrp_func2
 from algorithms.helper_funcs import get_policy_as_action_dict
 from operator import itemgetter
+from random import choices
 from copy import deepcopy
 import numpy as np
 from utils.generic_typevars import S, A
 from utils.standard_typevars import VFType, QFType
-from utils.standard_typevars import PolicyType
+from utils.standard_typevars import PolicyType, PolicyActDictType
 
 
 class ADPPolicyGradient(OptBase):
 
-    NUM_SAMPLES_PER_ACTION = 10
+    NUM_ACTION_SAMPLES = 100
 
     def __init__(
         self,
         mdp_rep_for_adp_pg: MDPRepForADPPG,
-        num_state_samples: int,
-        num_action_samples: int,
+        num_samples: int,
+        max_steps: int,
         tol: float,
+        actor_lambda: float,
+        critic_lambda: float,
         score_func: Callable[[A, Sequence[float]], Sequence[float]],
         sample_actions_gen_func: Callable[[Sequence[float], int], Sequence[A]],
         vf_fa_spec: FuncApproxSpec,
@@ -30,9 +33,11 @@ class ADPPolicyGradient(OptBase):
 
     ) -> None:
         self.mdp_rep: MDPRepForADPPG = mdp_rep_for_adp_pg
-        self.num_state_samples: int = num_state_samples
-        self.num_action_samples: int = num_action_samples
+        self.num_samples: int = num_samples
+        self.max_steps: int = max_steps
         self.tol: float = tol
+        self.actor_lambda: float = actor_lambda
+        self.critic_lambda: float = critic_lambda
         self.score_func: Callable[[A, Sequence[float]], Sequence[float]] =\
             score_func
         self.sample_actions_gen_func: Callable[[Sequence[float], int], Sequence[A]] =\
@@ -45,18 +50,14 @@ class ADPPolicyGradient(OptBase):
     def get_gradient_max(gradient: Sequence[np.ndarray]) -> float:
         return max(np.max(np.abs(g)) for g in gradient)
 
-    def get_value_func(self, polf: PolicyType) -> VFType:
+    def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         epsilon = self.tol * 1e4
         mo = self.mdp_rep
-        pol_func = get_policy_as_action_dict(
-            polf,
-            self.num_action_samples
-        )
-        rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, pol_func)
-        prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, pol_func)
+        rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, polf)
+        prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, polf)
         samples_func = self.mdp_rep.sample_states_gen_func
         while epsilon >= self.tol:
-            samples = samples_func(self.num_state_samples)
+            samples = samples_func(self.num_samples)
             values = [rew_func(s) + mo.gamma *
                       sum(p * self.vf_fa.get_func_eval(s1) for s1, p in
                           prob_func(s).items())
@@ -65,13 +66,17 @@ class ADPPolicyGradient(OptBase):
                 samples,
                 values
             )]
-            self.vf_fa.update_params_from_avg_loss_gradient(avg_grad)
+            self.vf_fa.update_params_from_gradient(avg_grad)
+            print(self.vf_fa.get_func_eval(1))
+            print(self.vf_fa.get_func_eval(2))
+            print(self.vf_fa.get_func_eval(3))
+            print("-----")
             epsilon = ADPPolicyGradient.get_gradient_max(avg_grad)
 
         return self.vf_fa.get_func_eval
 
-    def get_act_value_func(self, polf: PolicyType) -> QFType:
-        v_func = self.get_value_func(polf)
+    def get_act_value_func_fa(self, polf: PolicyActDictType) -> QFType:
+        v_func = self.get_value_func_fa(polf)
         mo = self.mdp_rep
 
         # noinspection PyShadowingNames
@@ -87,6 +92,22 @@ class ADPPolicyGradient(OptBase):
 
         return state_func
 
+    def get_value_func(self, pol_func: PolicyType) -> VFType:
+        return self.get_value_func_fa(
+            get_policy_as_action_dict(
+                pol_func,
+                ADPPolicyGradient.NUM_ACTION_SAMPLES
+            )
+        )
+
+    def get_act_value_func(self, pol_func: PolicyType) -> QFType:
+        return self.get_act_value_func_fa(
+            get_policy_as_action_dict(
+                pol_func,
+                ADPPolicyGradient.NUM_ACTION_SAMPLES
+            )
+        )
+
     def get_policy_pdf_params_func(self) -> Callable[[S], Sequence[float]]:
         return lambda s: [f.get_func_eval(s) for f in self.pol_fa]
 
@@ -100,62 +121,94 @@ class ADPPolicyGradient(OptBase):
 
         return pol
 
+    def get_path(
+        self,
+        start_state: S,
+        polf: PolicyType
+    ) -> Sequence[Tuple[S, A, float]]:
+        res = []
+        state = start_state
+        steps = 0
+        terminate = False
+
+        while not terminate:
+            action = polf(state)(1)[0]
+            res.append((state, action, self.mdp_rep.reward_func(state, action)))
+            next_states, probs = zip(*self.mdp_rep.transitions_func(
+                state,
+                action
+            ).items())
+            state = choices(next_states, probs, k=1)[0]
+            steps += 1
+            terminate = steps >= self.max_steps or\
+                self.mdp_rep.terminal_state_func(state)
+        return res
+
     def get_optimal_stoch_policy_func(self) -> PolicyType:
         mo = self.mdp_rep
         samples_func = mo.sample_states_gen_func
         eps = self.tol * 1e4
-        params = [deepcopy(fap) for fap in self.vf_fa.params]
+        params = deepcopy(self.vf_fa.params)
         papt = self.get_policy_as_policy_type()
-        pol_func = get_policy_as_action_dict(
-            papt,
-            self.num_action_samples
-        )
-        rew_func = mo.reward_func
         tr_func = mo.transitions_func
         sc_func = self.score_func
         ppp_func = self.get_policy_pdf_params_func()
         while eps >= self.tol:
-            samples = samples_func(self.num_state_samples)
-            values = []
-            pol_grads = []
-            for s in samples:
-                ppp = ppp_func(s)
-                prob_score_ret = [(
-                    ap,
-                    np.array(sc_func(av, ppp)),
-                    rew_func(s, av) + mo.gamma * sum(
+            start_states = samples_func(self.num_samples)
+            states = []
+            deltas = []
+            disc_scores = []
+            gamma_pow = 1.
+            for start_state in start_states:
+                this_path = self.get_path(start_state, papt)
+
+                for s, a, r in this_path:
+                    delta = r + mo.gamma * sum(
                         p * self.vf_fa.get_func_eval(s1) for s1, p in
-                        tr_func(s, av).items()
-                    )
-                ) for av, ap in pol_func(s).items()]
-                values.append(sum(p * r for p, _, r in prob_score_ret))
-                pol_grads.append(sum(p * r * sc for p, sc, r in prob_score_ret))
+                        tr_func(s, a).items()
+                    ) - self.vf_fa.get_func_eval(s)
+                    states.append(s)
+                    deltas.append(delta)
+                    disc_scores = [gamma_pow * x for x in sc_func(a, ppp_func(s))]
+                    gamma_pow *= mo.gamma
 
-            avg_value_grad = [g / len(samples) for g in
-                              self.vf_fa.get_sum_loss_gradient(samples, values)]
-            self.vf_fa.update_params_from_avg_loss_gradient(avg_value_grad)
+                path_len = len(this_path)
+                avg_vf_grad = [g / path_len for g in
+                               self.vf_fa.get_el_tr_sum_objective_gradient(
+                                   states[-path_len:],
+                                   np.ones(path_len),
+                                   - np.array(deltas[-path_len:]),
+                                   mo.gamma * self.critic_lambda
+                               )]
+                self.vf_fa.update_params_from_gradient(avg_vf_grad)
 
-            pol_grads_arr = np.vstack(pol_grads)
+            pg_arr = np.vstack(disc_scores)
             for i, pp_fa in enumerate(self.pol_fa):
-                avg_pol_grad = [h / len(samples) for h in
-                                pp_fa.get_sum_objective_gradient(
-                                    samples,
-                                    pol_grads_arr[:, i]
-                                )]
-                pp_fa.update_params_from_avg_loss_gradient(avg_pol_grad)
+                pol_grad = pp_fa.get_el_tr_sum_objective_gradient(
+                    states,
+                    pg_arr[:, i],
+                    np.array(deltas),
+                    mo.gamma * self.actor_lambda
+                )
+                pp_fa.update_params_from_gradient(pol_grad)
 
-            new_params = [deepcopy(fap) for fap in self.vf_fa.params]
-            eps = max(ADPPolicyGradient.get_gradient_max(
-                [new_params[i][j] - p for j, p in enumerate(this_params)]
-            ) for i, this_params in enumerate(params))
+            new_params = deepcopy(self.vf_fa.params)
+            eps = ADPPolicyGradient.get_gradient_max(
+                [new_params[i] - p for i, p in enumerate(params)]
+            )
             params = new_params
+
+            print(self.vf_fa.get_func_eval(1))
+            print(self.vf_fa.get_func_eval(2))
+            print(self.vf_fa.get_func_eval(3))
+            print("----")
 
         return papt
 
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:
         pol_func = get_policy_as_action_dict(
             self.get_optimal_stoch_policy_func(),
-            self.num_action_samples
+            ADPPolicyGradient.NUM_ACTION_SAMPLES
         )
         return lambda s: max(pol_func(s).items(), key=itemgetter(1))[0]
 
@@ -164,7 +217,6 @@ if __name__ == '__main__':
     from processes.mdp_refined import MDPRefined
     from func_approx.dnn_spec import DNNSpec
     from numpy.random import binomial
-    from processes.mp_funcs import get_sampling_func_from_prob_dict
 
     mdp_refined_data = {
         1: {
@@ -182,11 +234,13 @@ if __name__ == '__main__':
     }
     gamma_val = 0.9
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
-    mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_adp()
+    mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_adp_pg()
 
-    num_state_samples_val = 100
-    num_action_samples_val = 100
+    num_samples_val = 100
+    max_steps_val = 100
     tol_val = 1e-4
+    actor_lambda_val = 0.8
+    critic_lambda_val = 0.8
     vf_fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[
             lambda s: 1. if s == 1 else 0.,
@@ -223,9 +277,11 @@ if __name__ == '__main__':
     sa_gen_func = lambda p, n: [('a' if x == 1 else 'b') for x in binomial(1, p[0], n)]
     adp_pg_obj = ADPPolicyGradient(
         mdp_rep_for_adp_pg=mdp_rep_obj,
-        num_state_samples=num_state_samples_val,
-        num_action_samples=num_action_samples_val,
+        num_samples=num_samples_val,
+        max_steps=max_steps_val,
         tol=tol_val,
+        actor_lambda=actor_lambda_val,
+        critic_lambda=critic_lambda_val,
         score_func=this_score_func,
         sample_actions_gen_func=sa_gen_func,
         vf_fa_spec=vf_fa_spec_val,
@@ -243,21 +299,26 @@ if __name__ == '__main__':
             raise ValueError
         return ret
 
-    def pf_as_policy_type(i: int) -> Callable[[int], Sequence[str]]:
-        return get_sampling_func_from_prob_dict(policy_func(i))
+    # print("Printing DP vf for a policy")
+    # from processes.policy import Policy
+    # true_vf_for_pol = mdp_ref_obj1.get_value_func_dict(Policy(
+    #     {s: policy_func(s) for s in {1, 2, 3}}
+    # ))
+    # print(true_vf_for_pol)
+    #
+    # # this_qf = adp_pg_obj.get_act_value_func_fa(policy_func)
+    # this_vf = adp_pg_obj.get_value_func_fa(policy_func)
+    # print("Printing vf for a policy")
+    # print(this_vf(1))
+    # print(this_vf(2))
+    # print(this_vf(3))
 
-    this_qf = adp_pg_obj.get_act_value_func(pf_as_policy_type)
-    this_vf = adp_pg_obj.get_value_func(pf_as_policy_type)
-    print("Printing vf for a policy")
-    print(this_vf(1))
-    print(this_vf(2))
-    print(this_vf(3))
-    print("Printing DP vf for a policy")
-    from processes.policy import Policy
-    true_vf_for_pol = mdp_ref_obj1.get_value_func_dict(Policy(
-        {s: policy_func(s) for s in {1, 2, 3}}
-    ))
-    print(true_vf_for_pol)
+    true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
+    print("Printing DP Opt Policy")
+    print(true_opt)
+    true_vf = mdp_ref_obj1.get_value_func_dict(true_opt)
+    print("Printing DP Opt VF")
+    print(true_vf)
 
     opt_det_polf = adp_pg_obj.get_optimal_det_policy_func()
 
@@ -275,9 +336,3 @@ if __name__ == '__main__':
     print(opt_vf(1))
     print(opt_vf(2))
     print(opt_vf(3))
-    true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
-    print("Printing DP Opt Policy")
-    print(true_opt)
-    true_vf = mdp_ref_obj1.get_value_func_dict(true_opt)
-    print("Printing DP Opt VF")
-    print(true_vf)
