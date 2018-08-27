@@ -169,7 +169,9 @@ class ADPPolicyGradient(OptBase):
                     ) - self.vf_fa.get_func_eval(s)
                     states.append(s)
                     deltas.append(delta)
-                    disc_scores = [gamma_pow * x for x in sc_func(a, ppp_func(s))]
+                    disc_scores.append(
+                        [gamma_pow * x for x in sc_func(a, ppp_func(s))]
+                    )
                     gamma_pow *= mo.gamma
 
                 path_len = len(this_path)
@@ -187,7 +189,7 @@ class ADPPolicyGradient(OptBase):
                 pol_grad = pp_fa.get_el_tr_sum_objective_gradient(
                     states,
                     pg_arr[:, i],
-                    np.array(deltas),
+                    - np.array(deltas),
                     mo.gamma * self.actor_lambda
                 )
                 pp_fa.update_params_from_gradient(pol_grad)
