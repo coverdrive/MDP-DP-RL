@@ -184,15 +184,14 @@ class ADPPolicyGradient(OptBase):
                     )
                     gamma_pow *= mo.gamma
 
-                path_len = len(this_path)
-                avg_vf_grad = [g / path_len for g in
-                               self.vf_fa.get_el_tr_sum_objective_gradient(
-                                   states,
-                                   np.power(mo.gamma, np.arange(path_len)),
-                                   - np.array(deltas),
-                                   mo.gamma * self.critic_lambda
-                               )]
-                self.vf_fa.update_params_from_gradient(avg_vf_grad)
+                self.vf_fa.update_params_from_gradient(
+                    self.vf_fa.get_el_tr_sum_objective_gradient(
+                        states,
+                        np.power(mo.gamma, np.arange(len(this_path))),
+                        - np.array(deltas),
+                        mo.gamma * self.critic_lambda
+                    )
+                )
 
                 pg_arr = np.vstack(disc_scores)
                 for i, pp_fa in enumerate(self.pol_fa):
@@ -206,7 +205,9 @@ class ADPPolicyGradient(OptBase):
                         pol_grads[i][j] += this_pol_grad[j]
 
             for i, pp_fa in enumerate(self.pol_fa):
-                pp_fa.update_params_from_gradient(pol_grads[i])
+                pp_fa.update_params_from_gradient(
+                    [pg / self.num_samples for pg in pol_grads[i]]
+                )
 
             new_params = deepcopy(self.vf_fa.params)
             eps = ADPPolicyGradient.get_gradient_max(
