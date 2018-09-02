@@ -250,11 +250,11 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_adp_pg()
 
-    num_samples_val = 100
+    num_samples_val = 10
     max_steps_val = 100
     tol_val = 1e-4
-    actor_lambda_val = 0.8
-    critic_lambda_val = 0.8
+    actor_lambda_val = 0.95
+    critic_lambda_val = 0.95
     vf_fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[
             lambda s: 1. if s == 1 else 0.,
@@ -263,7 +263,7 @@ if __name__ == '__main__':
         ],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[2, 4],
+            neurons=[2],
             hidden_activation=DNNSpec.relu,
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.identity,
@@ -278,7 +278,7 @@ if __name__ == '__main__':
         ],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[2, 4],
+            neurons=[2],
             hidden_activation=DNNSpec.relu,
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.sigmoid,

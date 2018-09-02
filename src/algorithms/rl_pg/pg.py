@@ -229,10 +229,10 @@ class PolicyGradient(OptBase):
                     [pg / self.batch_size for pg in pol_grads[i]]
                 )
 
-            # print(self.vf_fa.get_func_eval(1))
-            # print(self.vf_fa.get_func_eval(2))
-            # print(self.vf_fa.get_func_eval(3))
-            # print("----")
+            print(self.vf_fa.get_func_eval(1))
+            print(self.vf_fa.get_func_eval(2))
+            print(self.vf_fa.get_func_eval(3))
+            print("----")
 
         return self.get_policy_as_policy_type()
 
@@ -268,10 +268,10 @@ if __name__ == '__main__':
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_pg()
 
     num_batches_val = 1000
-    batch_size_val = 100
+    batch_size_val = 10
     max_steps_val = 100
-    actor_lambda_val = 0.8
-    critic_lambda_val = 0.8
+    actor_lambda_val = 0.95
+    critic_lambda_val = 0.95
     fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[
             lambda s: 1. if s == 1 else 0.,
@@ -280,7 +280,7 @@ if __name__ == '__main__':
         ],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[2, 4],
+            neurons=[2],
             hidden_activation=DNNSpec.relu,
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.identity,
@@ -295,7 +295,7 @@ if __name__ == '__main__':
         ],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[2, 4],
+            neurons=[2],
             hidden_activation=DNNSpec.relu,
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.sigmoid,
