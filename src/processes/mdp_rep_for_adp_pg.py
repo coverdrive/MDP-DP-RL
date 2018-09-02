@@ -7,14 +7,14 @@ class MDPRepForADPPG(Generic[S, A]):
     def __init__(
         self,
         gamma: float,
-        sample_states_gen_func: Callable[[int], Sequence[S]],
+        init_states_gen_func: Callable[[int], Sequence[S]],
         reward_func: Callable[[S, A], float],
         transitions_func: Callable[[S, A], Mapping[S, float]],
         terminal_state_func: Callable[[S], bool],
     ) -> None:
         self.gamma: float = gamma
-        self.sample_states_gen_func: Callable[[int], Sequence[S]] = \
-            sample_states_gen_func
+        self.init_states_gen_func: Callable[[int], Sequence[S]] = \
+            init_states_gen_func
         self.reward_func: Callable[[S, A], float] = reward_func
         self.transitions_func: Callable[[S, A], Mapping[S, float]] = \
             transitions_func

@@ -128,8 +128,8 @@ def get_rv_gen_func(prob_dict: Mapping[S, float])\
 
 
 def get_state_reward_gen_func(
-        prob_dict: Mapping[S, float],
-        rew_dict: Mapping[S, float]
+    prob_dict: Mapping[S, float],
+    rew_dict: Mapping[S, float]
 ) -> Callable[[], Tuple[S, float]]:
     gf = get_rv_gen_func_single(prob_dict)
 
@@ -142,7 +142,7 @@ def get_state_reward_gen_func(
     return ret_func
 
 
-def get_state_reward_gen_dict(rr: SASf, tr: SASf) \
+def get_state_reward_gen_dict(tr: SASf, rr: SASf) \
         -> Mapping[S, Mapping[A, Callable[[], Tuple[S, float]]]]:
     return {s: {a: get_state_reward_gen_func(tr[s][a], rr[s][a])
                 for a, _ in v.items()}

@@ -5,8 +5,11 @@ import numpy as np
 from processes.policy import Policy
 from processes.mp_funcs import mdp_rep_to_mrp_rep1
 from processes.mrp_refined import MRPRefined
+from processes.mp_funcs import get_rv_gen_func_single
 from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
+from processes.mdp_rep_for_rl_pg import MDPRepForRLPG
 from processes.mp_funcs import get_state_reward_gen_dict
+from processes.mp_funcs import get_state_reward_gen_func
 from utils.standard_typevars import SASf, SAf, SASTff
 
 
@@ -52,10 +55,24 @@ class MDPRefined(MDP):
             state_action_dict=self.state_action_dict,
             terminal_states=self.terminal_states,
             state_reward_gen_dict=get_state_reward_gen_dict(
-                self.rewards_refined,
-                self.transitions
+                self.transitions,
+                self.rewards_refined
             ),
             gamma=self.gamma
+        )
+
+    def get_mdp_rep_for_rl_pg(self) -> MDPRepForRLPG:
+        return MDPRepForRLPG(
+            gamma=self.gamma,
+            init_state_gen_func=get_rv_gen_func_single(
+                {s: 1. / len(self.state_action_dict) for s in
+                 self.state_action_dict.keys()}
+            ),
+            state_reward_gen_func=lambda s, a: get_state_reward_gen_func(
+                self.transitions[s][a],
+                self.rewards_refined[s][a],
+            )(),
+            terminal_state_func=lambda s: s in self.terminal_states,
         )
 
 

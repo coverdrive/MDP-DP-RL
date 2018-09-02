@@ -104,7 +104,7 @@ class MDP(Generic[S, A]):
     def get_mdp_rep_for_adp_pg(self) -> MDPRepForADPPG:
         return MDPRepForADPPG(
             gamma=self.gamma,
-            sample_states_gen_func=get_rv_gen_func(
+            init_states_gen_func=get_rv_gen_func(
                 {s: 1. / len(self.state_action_dict) for s in
                  self.state_action_dict.keys()}
             ),
