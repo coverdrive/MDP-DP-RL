@@ -79,7 +79,7 @@ class PortOpt(Generic[StateType, ActionType]):
         t, W = state
         if t == self.epochs:
             ret = [((t, 0.), self.beq_utils_func(W))] * num_samples
-        else:/deepcop
+        else:
             cons = action[0]
             risky_alloc = action[1:]
             riskless_alloc = 1. - sum(risky_alloc)
