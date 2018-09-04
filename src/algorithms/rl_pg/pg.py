@@ -204,10 +204,11 @@ class PolicyGradient(OptBase):
         return self.get_policy_as_policy_type()
 
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:
+        papt = self.get_optimal_stoch_policy_func()
 
         def opt_det_pol_func(s: S) -> A:
             return tuple(np.mean(
-                self.get_optimal_stoch_policy_func()(s)(self.num_action_samples),
+                papt(s)(self.num_action_samples),
                 axis=0
             ))
 
