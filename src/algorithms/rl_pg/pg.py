@@ -196,10 +196,10 @@ class PolicyGradient(OptBase):
                     [pg / self.batch_size for pg in pol_grads[i]]
                 )
 
-            print(self.vf_fa.get_func_eval(1))
-            print(self.vf_fa.get_func_eval(2))
-            print(self.vf_fa.get_func_eval(3))
-            print("----")
+            # print(self.vf_fa.get_func_eval(1))
+            # print(self.vf_fa.get_func_eval(2))
+            # print(self.vf_fa.get_func_eval(3))
+            # print("----")
 
         return self.get_policy_as_policy_type()
 

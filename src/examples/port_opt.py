@@ -46,7 +46,7 @@ class PortOpt(Generic[StateType, ActionType]):
             self.epochs = len(riskless_returns)
             self.returns_gen_funcs = returns_gen_funcs
             self.cons_util_func = cons_util_func
-            self.beq_utils_func = beq_util_func
+            self.beq_util_func = beq_util_func
 
     # Epoch t is from time t to time (t+1), for 0 <= t < T
     # where T = number of epochs. At time T (i.e., at end of epoch
@@ -78,7 +78,7 @@ class PortOpt(Generic[StateType, ActionType]):
     ) -> Sequence[Tuple[StateType, float]]:
         t, W = state
         if t == self.epochs:
-            ret = [((t, 0.), self.beq_utils_func(W))] * num_samples
+            ret = [((t, 0.), self.beq_util_func(W))] * num_samples
         else:
             cons = action[0]
             risky_alloc = action[1:]
@@ -98,6 +98,10 @@ class PortOpt(Generic[StateType, ActionType]):
         num_state_samples: int,
         num_next_state_samples: int,
         num_action_samples: int,
+        num_batches: int,
+        actor_lambda: float,
+        critic_lambda: float,
+        score
 
     ) -> ADPPolicyGradient:
 
