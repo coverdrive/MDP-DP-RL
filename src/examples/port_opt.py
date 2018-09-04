@@ -5,7 +5,6 @@ from algorithms.adp.adp_pg import ADPPolicyGradient
 from algorithms.rl_pg.pg import PolicyGradient
 from func_approx.func_approx_base import FuncApproxBase
 from algorithms.func_approx_spec import FuncApproxSpec
-from operator import itemgetter
 from processes.det_policy import DetPolicy
 
 StateType = Tuple[int, float]
@@ -19,12 +18,12 @@ class PortOpt(Generic[StateType, ActionType]):
         num_risky_assets: int,
         riskless_returns_seq: Sequence[float],
         returns_gen: Sequence[Callable[int], np.ndarray],
-        disc_fac: float
+        disc_fact: float
     ) -> bool:
         b1 = num_risky_assets >= 1
         b2 = all(x > 0 for x in riskless_returns_seq)
         b3 = len(riskless_returns_seq) == len(returns_gen)
-        b4 = 0. <= disc_fac <= 1.
+        b4 = 0. <= disc_fact <= 1.
         return all([b1, b2, b3, b4])
 
     def __init__(
@@ -39,6 +38,7 @@ class PortOpt(Generic[StateType, ActionType]):
         if PortOpt.validate_spec(
             num_risky,
             riskless_returns,
+            returns_gen_funcs,
             discount_factor
         ):
             self.num_risky = num_risky
@@ -47,6 +47,8 @@ class PortOpt(Generic[StateType, ActionType]):
             self.returns_gen_funcs = returns_gen_funcs
             self.cons_util_func = cons_util_func
             self.beq_util_func = beq_util_func
+        else:
+            raise ValueError
 
     # Epoch t is from time t to time (t+1), for 0 <= t < T
     # where T = number of epochs. At time T (i.e., at end of epoch
@@ -68,7 +70,7 @@ class PortOpt(Generic[StateType, ActionType]):
     # W_{t+1} = W_t . (1 - C_t) . (A_0 . (1+r) + \sum_{i=1}^n A_i . (1 + R_i))
 
     def init_state(self) -> StateType:
-        return (0, 1.)
+        return 0, 1.
 
     def state_reward_gen(
         self,
@@ -101,81 +103,23 @@ class PortOpt(Generic[StateType, ActionType]):
         num_batches: int,
         actor_lambda: float,
         critic_lambda: float,
-        score
-
+        actor_neurons: Sequence[int],
+        critic_neurons: Sequence[int]
     ) -> ADPPolicyGradient:
+        return 0
 
-
+    def get_pg_obj(
+        self,
+        batch_size: int,
+        num_batches: int,
+        num_action_samples: int,
+        actor_lambda: float,
+        critic_lambda: float,
+        actor_neurons: Sequence[int],
+        critic_neurons: Sequence[int]
+    ) -> PolicyGradient:
+        return 0
 
 
 if __name__ == '__main__':
-
-    ic = InvControl(
-        demand_lambda=0.5,
-        lead_time=1,
-        stockout_cost=49.,
-        fixed_order_cost=0.0,
-        epoch_disc_factor=0.98,
-        order_limit=7,
-        space_limit=8,
-        throwout_cost=30.,
-        stockout_limit=5,
-        stockout_limit_excess_cost=30.
-    )
-    valid = ic.validate_spec()
-    mdp_ref_obj = ic.get_mdp_refined()
-    this_tolerance = 1e-3
-    this_first_visit_mc = True
-    num_samples = 30
-    this_softmax = True
-    this_epsilon = 0.05
-    this_epsilon_half_life = 30
-    this_learning_rate = 0.1
-    this_learning_rate_decay = 1e6
-    this_lambd = 0.8
-    this_num_episodes = 3000
-    this_max_steps = 1000
-    this_tdl_fa_offline = True
-    this_fa_spec = FuncApproxSpec(
-        state_feature_funcs=FuncApproxBase.get_identity_feature_funcs(
-            ic.lead_time + 1
-        ),
-        action_feature_funcs=[lambda x: x],
-        dnn_spec=DNNSpec(
-            neurons=[2, 4],
-            hidden_activation=DNNSpec.relu,
-            hidden_activation_deriv=DNNSpec.relu_deriv,
-            output_activation=DNNSpec.identity,
-            output_activation_deriv=DNNSpec.identity_deriv
-        )
-    )
-
-    raa = RunAllAlgorithms(
-        mdp_refined=mdp_ref_obj,
-        tolerance=this_tolerance,
-        first_visit_mc=this_first_visit_mc,
-        num_samples=num_samples,
-        softmax=this_softmax,
-        epsilon=this_epsilon,
-        epsilon_half_life=this_epsilon_half_life,
-        learning_rate=this_learning_rate,
-        learning_rate_decay=this_learning_rate_decay,
-        lambd=this_lambd,
-        num_episodes=this_num_episodes,
-        max_steps=this_max_steps,
-        tdl_fa_offline=this_tdl_fa_offline,
-        fa_spec=this_fa_spec
-    )
-
-    def criter(x: Tuple[Tuple[int, ...], int]) -> int:
-        return sum(x[0])
-
-    for st, mo in raa.get_all_algorithms().items():
-        print("Starting %s" % st)
-        opt_pol_func = mo.get_optimal_det_policy_func()
-        opt_pol = {s: opt_pol_func(s) for s in mdp_ref_obj.all_states}
-        print(sorted(
-            [(ip, np.mean([float(y) for _, y in v])) for ip, v in
-             groupby(sorted(opt_pol.items(), key=criter), key=criter)],
-            key=itemgetter(0)
-        ))
+    print(0)
