@@ -50,13 +50,12 @@ class MonteCarlo(RLFuncApproxBase):
     ) -> Sequence[Tuple[S, A, float, bool]]:
 
         res = []
-        next_state = start_state
+        state = start_state
         steps = 0
         terminate = False
         occ_states = set()
 
         while not terminate:
-            state = next_state
             first = state not in occ_states
             occ_states.add(state)
             action = get_rv_gen_func_single(polf(state))()\
@@ -67,6 +66,7 @@ class MonteCarlo(RLFuncApproxBase):
             steps += 1
             terminate = steps >= self.max_steps or\
                 self.mdp_rep.terminal_state_func(state)
+            state = next_state
         return res
 
     def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:

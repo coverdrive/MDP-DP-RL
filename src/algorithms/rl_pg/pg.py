@@ -44,10 +44,6 @@ class PolicyGradient(OptBase):
         self.pol_fa: Sequence[FuncApproxBase] =\
             [s.get_vf_func_approx_obj() for s in pol_fa_spec]
 
-    @staticmethod
-    def get_gradient_max(gradient: Sequence[np.ndarray]) -> float:
-        return max(np.max(np.abs(g)) for g in gradient)
-
     def get_value_func(self, pol_func: PolicyType) -> VFType:
         mo = self.mdp_rep
         for _ in range(self.num_batches * self.batch_size):
@@ -138,34 +134,6 @@ class PolicyGradient(OptBase):
 
         return pol
 
-    def get_path(
-        self,
-        start_state: S
-    ) -> Sequence[Tuple[S, Sequence[float], A, float]]:
-        res = []
-        state = start_state
-        steps = 0
-        terminate = False
-
-        while not terminate:
-            pdf_params = [f.get_func_eval(state) for f in self.pol_fa]
-            action = self.sample_actions_gen_func(pdf_params, 1)[0]
-            next_state, reward = self.mdp_rep.state_reward_gen_func(
-                state,
-                action
-            )
-            res.append((
-                state,
-                pdf_params,
-                action,
-                reward
-            ))
-            state = next_state
-            steps += 1
-            terminate = steps >= self.max_steps or\
-                self.mdp_rep.terminal_state_func(state)
-        return res
-
     def get_optimal_stoch_policy_func(self) -> PolicyType:
         mo = self.mdp_rep
         sc_func = self.score_func
@@ -183,6 +151,7 @@ class PolicyGradient(OptBase):
                 steps = 0
                 terminate = False
                 state = mo.init_state_gen_func()
+
                 while not terminate:
                     pdf_params = [f.get_func_eval(state) for f in self.pol_fa]
                     action = self.sample_actions_gen_func(pdf_params, 1)[0]

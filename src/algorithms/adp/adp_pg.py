@@ -3,10 +3,8 @@ from algorithms.opt_base import OptBase
 from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.func_approx_base import FuncApproxBase
-from processes.mp_funcs import mdp_func_to_mrp_func1, mdp_func_to_mrp_func2
 from algorithms.helper_funcs import get_policy_as_action_dict
 from operator import itemgetter
-from random import choices
 from copy import deepcopy
 import numpy as np
 from utils.generic_typevars import S, A
@@ -15,15 +13,29 @@ from utils.standard_typevars import PolicyType, PolicyActDictType
 
 
 class ADPPolicyGradient(OptBase):
-
-    NUM_ACTION_SAMPLES = 100
+    """
+    This class is meant for continuous state spaces and continuous action
+    spaces. Here we blend ADP (i.e., DP with function approximation for
+    value function) with PG (i.e., gradient of policy drives policy
+    improvement). See the class ADP to understand how plain ADP is done
+    (i.e., without PG) - this class is an extension/variant of that
+    technique where the policy improvement is policy gradient instead
+    of argmax. Note that both ADP and this class are model-based
+    methods, meaning we have access to state transition probabilities
+    and expected rewards, and we take advantage of that information
+    in the algorithm. On the other hand, the class PolicyGradient is
+    a model-free algorithm based on PolicyGradient (also meant for
+    continuous states/actions).
+    """
 
     def __init__(
         self,
         mdp_rep_for_adp_pg: MDPRepForADPPG,
-        num_samples: int,
+        num_state_samples: int,
+        num_next_state_samples: int,
+        num_action_samples: int,
+        num_batches: int,
         max_steps: int,
-        tol: float,
         actor_lambda: float,
         critic_lambda: float,
         score_func: Callable[[A, Sequence[float]], Sequence[float]],
@@ -33,9 +45,11 @@ class ADPPolicyGradient(OptBase):
 
     ) -> None:
         self.mdp_rep: MDPRepForADPPG = mdp_rep_for_adp_pg
-        self.num_samples: int = num_samples
+        self.num_state_samples: int = num_state_samples
+        self.num_next_state_samples: int = num_next_state_samples
+        self.num_action_samples: int = num_action_samples
+        self.num_batches: int = num_batches
         self.max_steps: int = max_steps
-        self.tol: float = tol
         self.actor_lambda: float = actor_lambda
         self.critic_lambda: float = critic_lambda
         self.score_func: Callable[[A, Sequence[float]], Sequence[float]] =\
@@ -46,26 +60,21 @@ class ADPPolicyGradient(OptBase):
         self.pol_fa: Sequence[FuncApproxBase] =\
             [s.get_vf_func_approx_obj() for s in pol_fa_spec]
 
-    @staticmethod
-    def get_gradient_max(gradient: Sequence[np.ndarray]) -> float:
-        return max(np.max(np.abs(g)) for g in gradient)
-
     def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
-        epsilon = self.tol * 1e4
         mo = self.mdp_rep
-        rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, polf)
-        prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, polf)
+        sr_func = self.mdp_rep.state_reward_gen_func
+        # rew_func = mdp_func_to_mrp_func2(self.mdp_rep.reward_func, polf)
+        # prob_func = mdp_func_to_mrp_func1(self.mdp_rep.transitions_func, polf)
         init_samples_func = self.mdp_rep.init_states_gen_func
-        while epsilon >= self.tol:
-            samples = init_samples_func(self.num_samples)
-            values = [rew_func(s) + mo.gamma *
-                      sum(p * self.vf_fa.get_func_eval(s1) for s1, p in
-                          prob_func(s).items())
-                      for s in samples]
+        for _ in range(self.num_batches):
+            samples = init_samples_func(self.num_state_samples)
+            values = [sum(ap * (r + mo.gamma * self.vf_fa.get_func_eval(s1))
+                          for a, ap in polf(s).items() for s1, r in
+                          sr_func(s, a, self.num_next_state_samples)) /
+                      self.num_next_state_samples for s in samples]
             avg_grad = [g / len(samples) for g in
                         self.vf_fa.get_sum_loss_gradient(samples, values)]
             self.vf_fa.update_params_from_gradient(avg_grad)
-            epsilon = ADPPolicyGradient.get_gradient_max(avg_grad)
             # print(self.vf_fa.get_func_eval(1))
             # print(self.vf_fa.get_func_eval(2))
             # print(self.vf_fa.get_func_eval(3))
@@ -81,9 +90,13 @@ class ADPPolicyGradient(OptBase):
 
             # noinspection PyShadowingNames
             def act_func(a: A, v_func=v_func) -> float:
-                return self.mdp_rep.reward_func(s, a) + self.mdp_rep.gamma *\
-                       sum(p * v_func(s1) for s1, p in
-                           self.mdp_rep.transitions_func(s, a).items())
+                return sum(r + self.mdp_rep.gamma * v_func(s1) for
+                           s1, r in self.mdp_rep.state_reward_gen_func(
+                    s,
+                    a,
+                    self.num_next_state_samples
+                )
+                           ) / self.num_next_state_samples
 
             return act_func
 
@@ -93,7 +106,7 @@ class ADPPolicyGradient(OptBase):
         return self.get_value_func_fa(
             get_policy_as_action_dict(
                 pol_func,
-                ADPPolicyGradient.NUM_ACTION_SAMPLES
+                self.num_action_samples
             )
         )
 
@@ -101,7 +114,7 @@ class ADPPolicyGradient(OptBase):
         return self.get_act_value_func_fa(
             get_policy_as_action_dict(
                 pol_func,
-                ADPPolicyGradient.NUM_ACTION_SAMPLES
+                self.num_action_samples
             )
         )
 
@@ -123,7 +136,7 @@ class ADPPolicyGradient(OptBase):
     def get_path(
         self,
         start_state: S
-    ) -> Sequence[Tuple[S, Sequence[float], A, float]]:
+    ) -> Sequence[Tuple[S, Sequence[float], A]]:
         res = []
         state = start_state
         steps = 0
@@ -132,54 +145,50 @@ class ADPPolicyGradient(OptBase):
         while not terminate:
             pdf_params = [f.get_func_eval(state) for f in self.pol_fa]
             action = self.sample_actions_gen_func(pdf_params, 1)[0]
-            reward = self.mdp_rep.reward_func(state, action)
             res.append((
                 state,
                 pdf_params,
-                action,
-                reward
+                action
             ))
             steps += 1
             terminate = steps >= self.max_steps or\
                 self.mdp_rep.terminal_state_func(state)
-            next_states, probs = zip(*self.mdp_rep.transitions_func(
-                state,
-                action
-            ).items())
-            state = choices(next_states, probs, k=1)[0]
+            state = self.mdp_rep.state_reward_gen_func(state, action, 1)[0][0]
         return res
 
     def get_optimal_stoch_policy_func(self) -> PolicyType:
         mo = self.mdp_rep
         init_samples_func = mo.init_states_gen_func
-        eps = self.tol * 1e4
         params = deepcopy(self.vf_fa.params)
-        tr_func = mo.transitions_func
         sc_func = self.score_func
-        while eps >= self.tol:
-            init_states = init_samples_func(self.num_samples)
-            gamma_pow = 1.
+        for _ in range(self.num_batches):
+            init_states = init_samples_func(self.num_state_samples)
             pol_grads = [
                 [np.zeros_like(layer) for layer in this_pol_fa.params]
                 for this_pol_fa in self.pol_fa
             ]
             for init_state in init_states:
+                gamma_pow = 1.
                 states = []
                 deltas = []
                 disc_scores = []
                 this_path = self.get_path(init_state)
 
-                for s, pp, a, r in this_path:
-                    delta = r + mo.gamma * sum(
-                        p * self.vf_fa.get_func_eval(s1) for s1, p in
-                        tr_func(s, a).items()
-                    ) - self.vf_fa.get_func_eval(s)
+                for s, pp, a in this_path:
+                    delta = sum(r + mo.gamma * self.vf_fa.get_func_eval(s1)
+                                for s1, r in mo.state_reward_gen_func(
+                        s,
+                        a,
+                        self.num_next_state_samples
+                    )) / self.num_next_state_samples - self.vf_fa.get_func_eval(s)
                     states.append(s)
                     deltas.append(delta)
                     disc_scores.append(
                         [gamma_pow * x for x in sc_func(a, pp)]
                     )
                     gamma_pow *= mo.gamma
+
+                # print(list(zip(states, deltas)))
 
                 self.vf_fa.update_params_from_gradient(
                     self.vf_fa.get_el_tr_sum_objective_gradient(
@@ -203,14 +212,8 @@ class ADPPolicyGradient(OptBase):
 
             for i, pp_fa in enumerate(self.pol_fa):
                 pp_fa.update_params_from_gradient(
-                    [pg / self.num_samples for pg in pol_grads[i]]
+                    [pg / self.num_state_samples for pg in pol_grads[i]]
                 )
-
-            new_params = deepcopy(self.vf_fa.params)
-            eps = ADPPolicyGradient.get_gradient_max(
-                [new_params[i] - p for i, p in enumerate(params)]
-            )
-            params = new_params
 
             print(self.vf_fa.get_func_eval(1))
             print(self.vf_fa.get_func_eval(2))
@@ -222,7 +225,7 @@ class ADPPolicyGradient(OptBase):
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:
         pol_func = get_policy_as_action_dict(
             self.get_optimal_stoch_policy_func(),
-            ADPPolicyGradient.NUM_ACTION_SAMPLES
+            self.num_action_samples
         )
         return lambda s: max(pol_func(s).items(), key=itemgetter(1))[0]
 
@@ -250,9 +253,11 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_adp_pg()
 
-    num_samples_val = 10
+    num_state_samples_val = 100
+    num_next_state_samples_val = 25
+    num_action_samples_val = 20
+    num_batches_val = 1000
     max_steps_val = 100
-    tol_val = 1e-4
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
     vf_fa_spec_val = FuncApproxSpec(
@@ -278,7 +283,7 @@ if __name__ == '__main__':
         ],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[2],
+            neurons=[3],
             hidden_activation=DNNSpec.relu,
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.sigmoid,
@@ -291,9 +296,11 @@ if __name__ == '__main__':
     sa_gen_func = lambda p, n: [('a' if x == 1 else 'b') for x in binomial(1, p[0], n)]
     adp_pg_obj = ADPPolicyGradient(
         mdp_rep_for_adp_pg=mdp_rep_obj,
-        num_samples=num_samples_val,
+        num_state_samples=num_state_samples_val,
+        num_next_state_samples=num_next_state_samples_val,
+        num_action_samples=num_action_samples_val,
+        num_batches=num_batches_val,
         max_steps=max_steps_val,
-        tol=tol_val,
         actor_lambda=actor_lambda_val,
         critic_lambda=critic_lambda_val,
         score_func=this_score_func,
@@ -327,6 +334,7 @@ if __name__ == '__main__':
     # print(this_vf(2))
     # print(this_vf(3))
 
+    tol_val = 1e-6
     true_opt = mdp_ref_obj1.get_optimal_policy(tol=tol_val)
     print("Printing DP Opt Policy")
     print(true_opt)

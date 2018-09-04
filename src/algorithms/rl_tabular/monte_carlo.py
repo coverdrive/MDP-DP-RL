@@ -48,7 +48,7 @@ class MonteCarlo(RLTabularBase):
     ) -> Sequence[Tuple[S, A, float, bool]]:
 
         res = []
-        next_state = start_state
+        state = start_state
         steps = 0
         terminate = False
         occ_states = set()
@@ -56,7 +56,6 @@ class MonteCarlo(RLTabularBase):
                         for s in self.mdp_rep.state_action_dict.keys()}
 
         while not terminate:
-            state = next_state
             first = state not in occ_states
             occ_states.add(state)
             action = act_gen_dict[state]()\
@@ -67,6 +66,7 @@ class MonteCarlo(RLTabularBase):
             steps += 1
             terminate = steps >= self.max_steps or\
                 state in self.mdp_rep.terminal_states
+            state = next_state
         return res
 
     def get_value_func_dict(self, pol: Policy) -> VFDictType:

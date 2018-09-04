@@ -9,7 +9,6 @@ from operator import itemgetter
 from processes.mrp import MRP
 from processes.mp_funcs import get_rv_gen_func
 from processes.mdp_rep_for_adp import MDPRepForADP
-from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from utils.generic_typevars import S, A
 
 
@@ -99,18 +98,6 @@ class MDP(Generic[S, A]):
             ),
             reward_func=lambda s, a: self.rewards[s][a],
             transitions_func=lambda s, a: self.transitions[s][a]
-        )
-
-    def get_mdp_rep_for_adp_pg(self) -> MDPRepForADPPG:
-        return MDPRepForADPPG(
-            gamma=self.gamma,
-            init_states_gen_func=get_rv_gen_func(
-                {s: 1. / len(self.state_action_dict) for s in
-                 self.state_action_dict.keys()}
-            ),
-            reward_func=lambda s, a: self.rewards[s][a],
-            transitions_func=lambda s, a: self.transitions[s][a],
-            terminal_state_func=lambda s: s in self.terminal_states
         )
 
 

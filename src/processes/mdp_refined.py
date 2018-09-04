@@ -5,11 +5,14 @@ import numpy as np
 from processes.policy import Policy
 from processes.mp_funcs import mdp_rep_to_mrp_rep1
 from processes.mrp_refined import MRPRefined
+from processes.mp_funcs import get_rv_gen_func
 from processes.mp_funcs import get_rv_gen_func_single
 from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
 from processes.mdp_rep_for_rl_pg import MDPRepForRLPG
+from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from processes.mp_funcs import get_state_reward_gen_dict
 from processes.mp_funcs import get_state_reward_gen_func
+from processes.mp_funcs import get_sampling_func_from_prob_dict
 from utils.standard_typevars import SASf, SAf, SASTff
 
 
@@ -59,6 +62,21 @@ class MDPRefined(MDP):
                 self.rewards_refined
             ),
             gamma=self.gamma
+        )
+
+    def get_mdp_rep_for_adp_pg(self) -> MDPRepForADPPG:
+        return MDPRepForADPPG(
+            gamma=self.gamma,
+            init_states_gen_func=get_rv_gen_func(
+                {s: 1. / len(self.state_action_dict) for s in
+                 self.state_action_dict.keys()}
+            ),
+            state_reward_gen_func=lambda s, a, n:
+                [(s1, self.rewards_refined[s][a][s1]) for s1 in
+                 get_sampling_func_from_prob_dict(self.transitions[s][a])(n)],
+            # reward_func=lambda s, a: self.rewards[s][a],
+            # transitions_func=lambda s, a: self.transitions[s][a],
+            terminal_state_func=lambda s: s in self.terminal_states
         )
 
     def get_mdp_rep_for_rl_pg(self) -> MDPRepForRLPG:
