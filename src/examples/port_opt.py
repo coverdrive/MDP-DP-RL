@@ -1,16 +1,12 @@
-from typing import Tuple, Generic, Mapping, Sequence, Callable
-from itertools import chain, product, groupby
+from typing import Tuple, Generic, Sequence, Callable
 import numpy as np
-from numpy.core.multiarray import ndarray
-from scipy.stats import poisson
-from processes.mdp_refined import MDPRefined
 from func_approx.dnn_spec import DNNSpec
+from algorithms.adp.adp_pg import ADPPolicyGradient
+from algorithms.rl_pg.pg import PolicyGradient
 from func_approx.func_approx_base import FuncApproxBase
 from algorithms.func_approx_spec import FuncApproxSpec
-from copy import deepcopy
 from operator import itemgetter
 from processes.det_policy import DetPolicy
-from examples.run_all_algorithms import RunAllAlgorithms
 
 StateType = Tuple[int, float]
 ActionType = Tuple[float, ...]
@@ -83,7 +79,7 @@ class PortOpt(Generic[StateType, ActionType]):
         t, W = state
         if t == self.epochs:
             ret = [((t, 0.), self.beq_utils_func(W))] * num_samples
-        else:
+        else:/deepcop
             cons = action[0]
             risky_alloc = action[1:]
             riskless_alloc = 1. - sum(risky_alloc)
@@ -97,78 +93,15 @@ class PortOpt(Generic[StateType, ActionType]):
                    for rs in ret_samples]
         return ret
 
+    def get_adp_pg_obj(
+        self,
+        num_state_samples: int,
+        num_next_state_samples: int,
+        num_action_samples: int,
 
-    def get_next_states_probs_rewards(
-            self,
-            state: StateType,
-            action: int,
-            demand_probs: Sequence[float]
-    ) -> Mapping[StateType, Tuple[float, float]]:
-        next_state_arr: ndarray = np.array(state)
-        # The next line represents state change due to Action and Receipt
-        next_state_arr = np.insert(
-            np.zeros(len(next_state_arr) - 1),
-            0,
-            next_state_arr[0]
-        ) + np.append(next_state_arr[1:], action)
-        excess = max(0, next_state_arr[0] - self.space_limit)
-        cost = (self.fixed_order_cost if action > 0 else 0.) + \
-            excess * self.throwout_cost
-        # The next line represents throwing out excess inventory
-        next_state_arr[0] -= excess
-        # The next line represents state change due to demand
-        temp_list = []
-        for demand, prob in enumerate(demand_probs):
-            ns = deepcopy(next_state_arr)
-            ns[0] -= demand
-            excess_stockout = max(0, -self.stockout_limit - ns[0])
-            this_cost = cost + excess_stockout * \
-                (self.stockout_cost + self.stockout_limit_excess_cost)
-            # the next line represents adjustment of negative inventory
-            # to not fall below stockout limit
-            ns[0] += excess_stockout
-            inv = ns[0]
-            onhand = max(0., inv)
-            stockout = max(0., -inv)
-            this_cost += (onhand + self.stockout_cost * stockout)
-            ns_tup = tuple(int(x) for x in ns)
-            temp_list.append((ns_tup, prob, -this_cost))
+    ) -> ADPPolicyGradient:
 
-        ret = {}
-        crit = itemgetter(0)
-        for s, v in groupby(sorted(temp_list, key=crit), key=crit):
-            tl = [(p, r) for _, p, r in v]
-            sum_p = sum(p for p, _ in tl)
-            avg_r = sum(p * r for p, r in tl) / sum_p if sum_p != 0. else 0.
-            ret[s] = (sum_p, avg_r)
-        return ret
 
-    def get_mdp_refined_dict(self) \
-            -> Mapping[StateType,
-                       Mapping[int,
-                               Mapping[StateType,
-                                       Tuple[float, float]]]]:
-        rv = poisson(mu=self.demand_lambda)
-        raw_probs = [rv.pmf(i) for i in range(int(rv.ppf(0.9999)))]
-        pp = [p / sum(raw_probs) for p in raw_probs]
-        return {s: {a: self.get_next_states_probs_rewards(s, a, pp)
-                    for a in range(self.order_limit + 1)}
-                for s in self.get_all_states()}
-
-    def get_mdp_refined(self) -> MDPRefined:
-        return MDPRefined(self.get_mdp_refined_dict(), self.epoch_disc_factor)
-
-    def get_optimal_policy(self) -> DetPolicy:
-        return self.get_mdp_refined().get_optimal_policy()
-
-    def get_ips_orders_dict(self) -> Mapping[int, Sequence[int]]:
-        sa_pairs = self.get_optimal_policy().get_state_to_action_map().items()
-
-        def crit(x: Tuple[Tuple[int, ...], int]) -> int:
-            return sum(x[0])
-
-        return {ip: [y for _, y in v] for ip, v in
-                groupby(sorted(sa_pairs, key=crit), key=crit)}
 
 
 if __name__ == '__main__':

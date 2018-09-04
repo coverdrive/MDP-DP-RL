@@ -4,8 +4,6 @@ from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.func_approx_base import FuncApproxBase
 from algorithms.helper_funcs import get_policy_as_action_dict
-from operator import itemgetter
-from copy import deepcopy
 import numpy as np
 from utils.generic_typevars import S, A
 from utils.standard_typevars import VFType, QFType
@@ -159,7 +157,6 @@ class ADPPolicyGradient(OptBase):
     def get_optimal_stoch_policy_func(self) -> PolicyType:
         mo = self.mdp_rep
         init_samples_func = mo.init_states_gen_func
-        params = deepcopy(self.vf_fa.params)
         sc_func = self.score_func
         for _ in range(self.num_batches):
             init_states = init_samples_func(self.num_state_samples)
@@ -223,11 +220,14 @@ class ADPPolicyGradient(OptBase):
         return self.get_policy_as_policy_type()
 
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:
-        pol_func = get_policy_as_action_dict(
-            self.get_optimal_stoch_policy_func(),
-            self.num_action_samples
-        )
-        return lambda s: max(pol_func(s).items(), key=itemgetter(1))[0]
+
+        def opt_det_pol_func(s: S) -> A:
+            return np.mean(
+                self.get_optimal_stoch_policy_func()(s)(self.num_action_samples),
+                axis=0
+            )
+
+        return opt_det_pol_func
 
 
 if __name__ == '__main__':
@@ -237,16 +237,16 @@ if __name__ == '__main__':
 
     mdp_refined_data = {
         1: {
-            'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
-            'b': {2: (0.3, -0.5), 3: (0.7, 2.6)}
+            (10,): {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
+            (-10,): {2: (0.3, -0.5), 3: (0.7, 2.6)}
         },
         2: {
-            'a': {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
-            'b': {1: (0.3, 19.8), 2: (0.6, 16.7), 3: (0.1, 1.8)},
+            (10,): {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
+            (-10,): {1: (0.3, 19.8), 2: (0.6, 16.7), 3: (0.1, 1.8)},
         },
         3: {
-            'a': {3: (1.0, 0.0)},
-            'b': {3: (1.0, 0.0)}
+            (10,): {3: (1.0, 0.0)},
+            (-10,): {3: (1.0, 0.0)}
         }
     }
     gamma_val = 0.9
@@ -256,7 +256,7 @@ if __name__ == '__main__':
     num_state_samples_val = 100
     num_next_state_samples_val = 25
     num_action_samples_val = 20
-    num_batches_val = 1000
+    num_batches_val = 100
     max_steps_val = 100
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
@@ -291,9 +291,9 @@ if __name__ == '__main__':
         )
     )]
     # noinspection PyPep8
-    this_score_func = lambda a, p: [1. / p[0] if a == 'a' else 1. / (p[0] - 1.)]
+    this_score_func = lambda a, p: [1. / p[0] if a == (10,) else 1. / (p[0] - 1.)]
     # noinspection PyPep8
-    sa_gen_func = lambda p, n: [('a' if x == 1 else 'b') for x in binomial(1, p[0], n)]
+    sa_gen_func = lambda p, n: [((10,) if x == 1 else (-10,)) for x in binomial(1, p[0], n)]
     adp_pg_obj = ADPPolicyGradient(
         mdp_rep_for_adp_pg=mdp_rep_obj,
         num_state_samples=num_state_samples_val,
@@ -309,13 +309,13 @@ if __name__ == '__main__':
         pol_fa_spec=pol_fa_spec_val
     )
 
-    def policy_func(i: int) -> Mapping[str, float]:
+    def policy_func(i: int) -> Mapping[Tuple[int], float]:
         if i == 1:
-            ret = {'a': 0.4, 'b': 0.6}
+            ret = {(10,): 0.4, (-10,): 0.6}
         elif i == 2:
-            ret = {'a': 0.7, 'b': 0.3}
+            ret = {(10,): 0.7, (-10,): 0.3}
         elif i == 3:
-            ret = {'b': 1.0}
+            ret = {(-10,): 1.0}
         else:
             raise ValueError
         return ret
