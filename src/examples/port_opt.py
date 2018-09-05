@@ -129,7 +129,7 @@ class PortOpt:
         :param num_samples: number of samples
         :return: list (of length num_samples) of (n+1)-tuples (a_0, a_1, ...., a_n)
         """
-        n = len(params) / 2 - 1
+        n = int(len(params) / 2) - 1
         alpha, beta = params[:2]
         variances = params[2:2+n]
         means = params[2+n:]
