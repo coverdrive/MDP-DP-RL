@@ -1,4 +1,4 @@
-from typing import Tuple, Generic, Sequence, Callable
+from typing import Tuple, Sequence, Callable
 import numpy as np
 from func_approx.dnn_spec import DNNSpec
 from algorithms.adp.adp_pg import ADPPolicyGradient
@@ -327,3 +327,28 @@ if __name__ == '__main__':
         beq_util_func=beq_util,
         discount_factor=discount
     )
+
+    num_state_samples_val = 50
+    num_next_state_samples_val = 20
+    num_action_samples_val = 50
+    num_batches_val = 100
+    actor_lambda_val = 0.95
+    critic_lambda_val = 0.95
+    actor_neurons_val = [4, 2]
+    critic_neurons_val = [3, 3]
+
+    adp_pg_obj = portfolio_optimization.get_adp_pg_obj(
+        num_state_samples=num_state_samples_val,
+        num_next_state_samples=num_next_state_samples_val,
+        num_action_samples=num_action_samples_val,
+        num_batches=num_batches_val,
+        actor_lambda=actor_lambda_val,
+        critic_lambda=critic_lambda_val,
+        actor_neurons=actor_neurons_val,
+        critic_neurons=critic_neurons_val
+    )
+    policy = adp_pg_obj.get_optimal_det_policy_func()
+    actions = [policy((t, 1.)) for t in range(portfolio_optimization.epochs)]
+    consumptions, risky_allocations = zip(*actions)
+    print(consumptions)
+    print(risky_allocations)
