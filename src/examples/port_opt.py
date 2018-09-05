@@ -12,7 +12,7 @@ StateType = Tuple[int, float]
 ActionType = Tuple[float, ...]
 
 
-class PortOpt(Generic[StateType, ActionType]):
+class PortOpt:
 
     def __init__(
         self,
@@ -44,7 +44,7 @@ class PortOpt(Generic[StateType, ActionType]):
     def validate_spec(
         num_risky_assets: int,
         riskless_returns_seq: Sequence[float],
-        returns_gen: Sequence[Callable[int], np.ndarray],
+        returns_gen: Sequence[Callable[[int], np.ndarray]],
         disc_fact: float
     ) -> bool:
         b1 = num_risky_assets >= 1
