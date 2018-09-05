@@ -347,8 +347,23 @@ if __name__ == '__main__':
         actor_neurons=actor_neurons_val,
         critic_neurons=critic_neurons_val
     )
-    policy = adp_pg_obj.get_optimal_det_policy_func()
-    actions = [policy((t, 1.)) for t in range(portfolio_optimization.epochs)]
-    consumptions, risky_allocations = zip(*actions)
-    print(consumptions)
-    print(risky_allocations)
+    policy1 = adp_pg_obj.get_optimal_det_policy_func()
+    actions1 = [policy1((t, 1.)) for t in range(portfolio_optimization.epochs)]
+    consumptions1, risky_allocations1 = zip(*actions1)
+    print(consumptions1)
+    print(risky_allocations1)
+
+    pg_obj = portfolio_optimization.get_pg_obj(
+        batch_size=num_state_samples_val,
+        num_batches=num_batches_val,
+        num_action_samples=num_action_samples_val,
+        actor_lambda=actor_lambda_val,
+        critic_lambda=critic_lambda_val,
+        actor_neurons=actor_neurons_val,
+        critic_neurons=critic_neurons_val
+    )
+    policy2 = pg_obj.get_optimal_det_policy_func()
+    actions2 = [policy2((t, 1.)) for t in range(portfolio_optimization.epochs)]
+    consumptions2, risky_allocations2 = zip(*actions2)
+    print(consumptions2)
+    print(risky_allocations2)
