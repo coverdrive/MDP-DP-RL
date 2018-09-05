@@ -32,3 +32,11 @@ class DNNSpec(NamedTuple):
     @staticmethod
     def sigmoid_deriv(res: np.ndarray) -> np.ndarray:
         return res * (1. * res)
+
+    @staticmethod
+    def softplus(arg: np.ndarray) -> np.ndarray:
+        return np.log(1. + np.exp(arg))
+
+    @staticmethod
+    def softplus_deriv(res: np.ndarray) -> np.ndarray:
+        return 1. + np.exp(-res)
