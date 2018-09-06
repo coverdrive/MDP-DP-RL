@@ -155,8 +155,8 @@ class PortOpt:
             action_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=neurons,
-                hidden_activation=DNNSpec.relu,
-                hidden_activation_deriv=DNNSpec.relu_deriv,
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
                 output_activation=DNNSpec.identity,
                 output_activation_deriv=DNNSpec.identity_deriv
             )
@@ -173,10 +173,10 @@ class PortOpt:
             action_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=neurons,
-                hidden_activation=DNNSpec.relu,
-                hidden_activation_deriv=DNNSpec.relu_deriv,
-                output_activation=DNNSpec.softplus,
-                output_activation_deriv=DNNSpec.softplus_deriv
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                output_activation=DNNSpec.pos_log_squish,
+                output_activation_deriv=DNNSpec.pos_log_squish_deriv
             )
         ) for _ in range(num_risky + 2)]
         means = [FuncApproxSpec(
@@ -187,8 +187,8 @@ class PortOpt:
             action_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=neurons,
-                hidden_activation=DNNSpec.relu,
-                hidden_activation_deriv=DNNSpec.relu_deriv,
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
                 output_activation=DNNSpec.identity,
                 output_activation_deriv=DNNSpec.identity_deriv
             )
@@ -286,13 +286,27 @@ class PortOpt:
 
 if __name__ == '__main__':
     risky_assets = 1
-    num_epochs = 5
+    num_epochs = 30
     rho = 0.02
-    riskfree_return = 0.01
+    r = 0.04
     mu = 0.08
-    sigma = 0.03
-    epsilon = 1e-4
+    sigma = 0.07
+    epsilon = 1e-6
     gamma = 0.5
+
+    optimal_allocation = (mu - r) / (sigma ** 2 * gamma)
+    nu = rho / gamma - (1. - gamma) * ((mu - r) * optimal_allocation /
+                                       (2. * gamma) + r / gamma)
+    if nu == 0:
+        optimal_consumption = [1. / (num_epochs - t + epsilon) for t in
+                               range(num_epochs)]
+    else:
+        optimal_consumption = [nu / (1. + (nu * epsilon - 1) *
+                                     np.exp(-nu * (num_epochs - t)))
+                               for t in range(num_epochs)]
+
+    print(optimal_consumption)
+    print(optimal_allocation)
 
     # noinspection PyShadowingNames
     def risky_returns_gen(
@@ -315,7 +329,7 @@ if __name__ == '__main__':
     def beq_util(x: float, gamma=gamma, epsilon=epsilon) -> float:
         return epsilon ** gamma * util_func(x)
 
-    riskfree_returns = [riskfree_return] * num_epochs
+    riskfree_returns = [r] * num_epochs
     returns_genf = [risky_returns_gen] * num_epochs
     discount = np.exp(-rho)
 
@@ -334,8 +348,8 @@ if __name__ == '__main__':
     num_batches_val = 100
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
-    actor_neurons_val = [4, 2]
-    critic_neurons_val = [3, 3]
+    actor_neurons_val = [4]
+    critic_neurons_val = [3]
 
     adp_pg_obj = portfolio_optimization.get_adp_pg_obj(
         num_state_samples=num_state_samples_val,

@@ -40,3 +40,23 @@ class DNNSpec(NamedTuple):
     @staticmethod
     def softplus_deriv(res: np.ndarray) -> np.ndarray:
         return 1. + np.exp(-res)
+
+    @staticmethod
+    def log_squish(arg: np.ndarray) -> np.ndarray:
+        return np.sign(arg) * np.log(1 + np.abs(arg))
+
+    @staticmethod
+    def log_squish_deriv(res: np.ndarray) -> np.ndarray:
+        return np.exp(-np.abs(res))
+
+    @staticmethod
+    def pos_log_squish(arg: np.ndarray) -> np.ndarray:
+        return np.vectorize(
+            lambda x: 1. + np.log(1. + x) if x > 0. else np.exp(x)
+        )(arg)
+
+    @staticmethod
+    def pos_log_squish_deriv(res: np.ndarray) -> np.ndarray:
+        return np.vectorize(
+            lambda x: np.exp(1. - x) if x > 1. else x
+        )(res)
