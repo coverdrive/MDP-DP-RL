@@ -31,10 +31,10 @@ class MertonPortfolio(NamedTuple):
 
         return opt_cons_func
 
-    def risky_returns_gen(self, samples: int) -> np.ndarray:
+    def risky_returns_gen(self, samples: int, delta_t: float) -> np.ndarray:
         return np.random.multivariate_normal(
-            mean=self.mu,
-            cov=self.cov,
+            mean=self.mu * delta_t,
+            cov=self.cov * delta_t,
             size=samples
         )
 
@@ -47,10 +47,12 @@ class MertonPortfolio(NamedTuple):
 
     def get_port_opt_obj(self, time_steps: int) -> PortOpt:
         risky_assets = len(self.mu)
+        delta_t = self.expiry / time_steps
         return PortOpt(
             num_risky=risky_assets,
-            riskless_returns=[self.r] * time_steps,
-            returns_gen_funcs=[lambda n: self.risky_returns_gen(n)] * time_steps,
+            riskless_returns=[self.r * delta_t] * time_steps,
+            returns_gen_funcs=[lambda n: self.risky_returns_gen(n, delta_t)] *
+                              time_steps,
             cons_util_func=lambda x: self.cons_utility(x),
             beq_util_func=lambda x: self.beq_utility(x),
             discount_factor=np.exp(-self.rho * self.expiry / time_steps)
