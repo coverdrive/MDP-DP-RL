@@ -106,7 +106,6 @@ if __name__ == '__main__':
     opt_alloc = mp.get_optimal_allocation()
     print(opt_alloc)
 
-    time_steps_val = 1
     num_state_samples_val = 50
     num_next_state_samples_val = 20
     num_action_samples_val = 50
