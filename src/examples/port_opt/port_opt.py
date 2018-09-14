@@ -3,10 +3,10 @@ import numpy as np
 from func_approx.dnn_spec import DNNSpec
 from algorithms.adp.adp_pg import ADPPolicyGradient
 from algorithms.rl_pg.pg import PolicyGradient
-from scipy.special import digamma
 from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from processes.mdp_rep_for_rl_pg import MDPRepForRLPG
 from algorithms.func_approx_spec import FuncApproxSpec
+from utils.beta_distribution import BetaDistribution
 
 StateType = Tuple[int, float]
 ActionType = Tuple[float, ...]
@@ -64,7 +64,8 @@ class PortOpt:
     #    with wealth growing from W_t . (1 - C_t) to W_{t+1}
     # 5) At the end of final epoch (T-1) (i.e., at time T), bequest W_T.
     #
-    # U_Beq(W_T) is the utility of bequest, U_Cons(W_t) is the utility
+    # U_Beq(W_T) is the utility of bequest, U_Cons(W_t) is the utility of
+    # consmption.
     # State at the start of epoch t is (t, W_t)
     # Action upon observation of state (t, W_t) is (C_t, A_1, .. A_n)
     # where 0 <= C_t <= 1 is the consumption and A_i, i = 1 .. n, is the
@@ -81,30 +82,33 @@ class PortOpt:
         :param action: is a tuple (a_0, a_1, ...., a_n) where a1
         is the consumption, and a_i, 1 <= i <= n, is the allocation
         for risky asset i.
-        :param params: is a Sequence (alpha, beta, sigma^2_1, ..., sigma^2_n,
-        mu_1,..., mu_n) (of length 2n + 2) where (alpha, beta) describes the
-        beta distribution for the consumption 0 <= a_0 <= 1, and and
-        (mu_i, sigma^2_i) describes the normal distribution for the allocation
-        a_i of risky asset i, 1 <= i <= n.
-        :return: nabla_{params} [log_e p(a_0, a_1, ..., a_n; alpha, beta,
-        sigma^2_1, ..., sigma^2_n, mu_1, ..., mu_n)], which is a Sequence of
+        :param params: is a Sequence (mu, nu, mu_1, ..., mu_n,
+        sigma^2_1,..., sigma^2_n) (of length 2n + 2) where (mu, nu) describes the
+        beta distribution for the consumption 0 < a_0 < 1, and (mu_i, sigma^2_i)
+        describes the normal distribution for the allocation a_i of risky asset
+        i, 1 <= i <= n.
+        :return: nabla_{params} [log_e p(a_0, a_1, ..., a_n; mu, nu,
+        mu_1, ..., mu_n, sigma^2_1, ..., sigma^2_n)], which is a Sequence of
         length 2n+2
         """
         n = len(action) - 1
-        alpha, beta = params[:2]
-        variances = params[2:2+n]
-        means = params[2+n:]
+        mu, nu = params[:2]
+        means = params[2:2+n]
+        variances = params[2+n:]
         cons = action[0]
         alloc = action[1:]
-        # beta distrubution PDF p(cons; alpga, beta) = gamma(alpha + beta) /
+        # beta distrubution PDF p(cons; alpha, beta) = gamma(alpha + beta) /
         # (gamma(alpha) * gamma(beta)) * cons^{alpha-1} * (1-cons)^(beta-1)
-        # score_{alpha} = d/d(alpha) (log p) = digamma(alpha + beta) -
-        # digamma(alpha) + log(cons)
-        # score_{beta} = d/d(beta) (log p) = digamma(alpha + beta) -
-        # digamma(beta) + log(1 - cons)
-        dig_ab = digamma(alpha + beta)
-        alpha_score = dig_ab - digamma(alpha) + np.log(cons)
-        beta_score = dig_ab - digamma(beta) + np.log(1. - cons)
+        # mu = alpha / (alpha + beta) = alpha / nu, nu = alpha + beta
+        # alpha = mu * nu, beta = (1-mu) * nu
+        # Score_mu(x) = d(log(p(x))) / d(mu) = Score_alpha * d(alpha) / d(mu)
+        # + Score_beta * d(beta) / d(mu)
+        # = (digamma(beta) - digamma(alpha) + log(x) - log(1 - x)) * nu
+        # Score_nu(x) = d(log(p(x))) / d(nu) = Score_alpha * d(alpha) / d(nu)
+        # + Score_beta * d(beta) / d(nu)
+        # = (digamma(beta) - digamma(alpha) + log(x) - log(1 - x)) * mu +
+        # digamma(nu) - digamma(beta) + log(1 - x)
+        mu_score, nu_score = BetaDistribution(mu, nu).get_mu_nu_scores(cons)
         # normal distribution PDF p(alloc; mean, var) = 1/sqrt(2 pi var) .
         # e^{-(alloc - mean)^2 / (2 var)}
         # score_{mean} = d/d(mean) (log p) = (alloc - mean) / var
@@ -113,7 +117,7 @@ class PortOpt:
                        enumerate(variances)]
         variances_score = [-0.5 * (1. / v - means_score[i] ** 2) for i, v in
                            enumerate(variances)]
-        return [alpha_score, beta_score] + variances_score + means_score
+        return [mu_score, nu_score] + means_score + variances_score
 
     @staticmethod
     def sample_actions_gen(
@@ -121,19 +125,19 @@ class PortOpt:
         num_samples: int
     ) -> Sequence[ActionType]:
         """
-        :param params: is a sequence (alpha, betam sigma^2_1, ..., sigma^2_n,
-        mu_1, ..., mu_n (of length 2n+2) where (alpha, beta) describes the
-        beta distribution for the consumption 0 <= a_0 <= 1, and (mu_1, sigm1^2_i)
+        :param params: is a sequence (mu, nu, mu_1, ..., mu_n, sigma^2_1, ...,
+        sigma^2_n (of length 2n+2) where (mu, nu) describes the
+        beta distribution for the consumption 0 < a_0 < 1, and (mu_1, sigma^2_i)
         describes the normal distribution for the allocation a_i of risky asset i,
         1 <= i <= n.
         :param num_samples: number of samples
         :return: list (of length num_samples) of (n+1)-tuples (a_0, a_1, ...., a_n)
         """
         n = int(len(params) / 2) - 1
-        alpha, beta = params[:2]
-        variances = params[2:2+n]
-        means = params[2+n:]
-        cons_samples = np.random.beta(a=alpha, b=beta, size=num_samples)
+        mu, nu = params[:2]
+        means = params[2:2+n]
+        variances = params[2+n:]
+        cons_samples = BetaDistribution(mu, nu).get_samples(num_samples)
         alloc_samples = [np.random.normal(
             loc=means[i],
             scale=np.sqrt(v),
@@ -145,56 +149,6 @@ class PortOpt:
     def init_state() -> StateType:
         return 0, 1.
 
-    @staticmethod
-    def critic_spec(neurons: Sequence[int]) -> FuncApproxSpec:
-        return FuncApproxSpec(
-            state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
-            ],
-            action_feature_funcs=[],
-            dnn_spec=DNNSpec(
-                neurons=neurons,
-                hidden_activation=DNNSpec.log_squish,
-                hidden_activation_deriv=DNNSpec.log_squish_deriv,
-                output_activation=DNNSpec.identity,
-                output_activation_deriv=DNNSpec.identity_deriv
-            )
-        )
-
-    @staticmethod
-    def actor_spec(neurons: Sequence[int], num_risky: int)\
-            -> Sequence[FuncApproxSpec]:
-        alpha_beta_vars = [FuncApproxSpec(
-            state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
-            ],
-            action_feature_funcs=[],
-            dnn_spec=DNNSpec(
-                neurons=neurons,
-                hidden_activation=DNNSpec.log_squish,
-                hidden_activation_deriv=DNNSpec.log_squish_deriv,
-                output_activation=DNNSpec.pos_log_squish,
-                output_activation_deriv=DNNSpec.pos_log_squish_deriv
-            )
-        ) for _ in range(num_risky + 2)]
-        means = [FuncApproxSpec(
-            state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
-            ],
-            action_feature_funcs=[],
-            dnn_spec=DNNSpec(
-                neurons=neurons,
-                hidden_activation=DNNSpec.log_squish,
-                hidden_activation_deriv=DNNSpec.log_squish_deriv,
-                output_activation=DNNSpec.identity,
-                output_activation_deriv=DNNSpec.identity_deriv
-            )
-        ) for _ in range(num_risky)]
-        return alpha_beta_vars + means
-
     # noinspection PyPep8Naming
     def state_reward_gen(
         self,
@@ -203,21 +157,22 @@ class PortOpt:
         num_samples: int
     ) -> Sequence[Tuple[StateType, float]]:
         t, W = state
-        if t == self.epochs:
-            ret = [((t, 0.), self.beq_util_func(W))] * num_samples
-        else:
-            cons = action[0]
-            risky_alloc = action[1:]
-            riskless_alloc = 1. - sum(risky_alloc)
-            alloc = np.insert(np.array(risky_alloc), 0, riskless_alloc)
-            ret_samples = np.hstack((
-                np.full((num_samples, 1), self.riskless_returns[t]),
-                self.returns_gen_funcs[t](num_samples)
-            ))
-            W1 = W * (1 - cons)
-            ret = [((t + 1, W1 * alloc.dot(1 + rs)), self.cons_util_func(cons))
-                   for rs in ret_samples]
-        return ret
+        cons = action[0]
+        risky_alloc = action[1:]
+        riskless_alloc = 1. - sum(risky_alloc)
+        alloc = np.insert(np.array(risky_alloc), 0, riskless_alloc)
+        ret_samples = np.hstack((
+            np.full((num_samples, 1), self.riskless_returns[t]),
+            self.returns_gen_funcs[t](num_samples)
+        ))
+        epoch_end_wealth = [W * (1. - cons) * alloc.dot(1. + rs)
+                            for rs in ret_samples]
+        return [(
+            (t + 1, eew),
+            self.cons_util_func(W * cons)
+            + (self.discount_factor * self.beq_util_func(eew)
+               if t == self.epochs - 1 else 0.)
+        ) for eew in epoch_end_wealth]
 
     def get_adp_pg_obj(
         self,
@@ -227,29 +182,36 @@ class PortOpt:
         num_batches: int,
         actor_lambda: float,
         critic_lambda: float,
-        actor_neurons: Sequence[int],
-        critic_neurons: Sequence[int]
+        actor_mu_spec: FuncApproxSpec,
+        actor_nu_spec: FuncApproxSpec,
+        actor_mean_spec: FuncApproxSpec,
+        actor_variance_spec: FuncApproxSpec,
+        critic_spec: FuncApproxSpec
     ) -> ADPPolicyGradient:
         init_state = PortOpt.init_state()
         mdp_rep_obj = MDPRepForADPPG(
             self.discount_factor,
             lambda n: [init_state] * n,
             lambda s, a, n: self.state_reward_gen(s, a, n),
-            lambda s: s[0] == self.epochs
+            lambda s: s[0] == self.epochs - 1
         )
+        risky = self.num_risky
+        policy_spec = [actor_mu_spec, actor_nu_spec] +\
+                      [actor_mean_spec] * risky +\
+                      [actor_variance_spec] * risky
         return ADPPolicyGradient(
             mdp_rep_for_adp_pg=mdp_rep_obj,
             num_state_samples=num_state_samples,
             num_next_state_samples=num_next_state_samples,
             num_action_samples=num_action_samples,
             num_batches=num_batches,
-            max_steps=self.epochs + 2,
+            max_steps=self.epochs,
             actor_lambda=actor_lambda,
             critic_lambda=critic_lambda,
             score_func=PortOpt.score_func,
             sample_actions_gen_func=PortOpt.sample_actions_gen,
-            vf_fa_spec=PortOpt.critic_spec(critic_neurons),
-            pol_fa_spec=PortOpt.actor_spec(actor_neurons, self.num_risky)
+            vf_fa_spec=critic_spec,
+            pol_fa_spec=policy_spec
         )
 
     def get_pg_obj(
@@ -259,28 +221,35 @@ class PortOpt:
         num_action_samples: int,
         actor_lambda: float,
         critic_lambda: float,
-        actor_neurons: Sequence[int],
-        critic_neurons: Sequence[int]
+        actor_mu_spec: FuncApproxSpec,
+        actor_nu_spec: FuncApproxSpec,
+        actor_mean_spec: FuncApproxSpec,
+        actor_variance_spec: FuncApproxSpec,
+        critic_spec: FuncApproxSpec
     ) -> PolicyGradient:
         init_state = PortOpt.init_state()
         mdp_rep_obj = MDPRepForRLPG(
             self.discount_factor,
             lambda: init_state,
             lambda s, a: self.state_reward_gen(s, a, 1)[0],
-            lambda s: s[0] == self.epochs
+            lambda s: s[0] == self.epochs - 1
         )
+        risky = self.num_risky
+        policy_spec = [actor_mu_spec, actor_nu_spec] +\
+                      [actor_mean_spec] * risky +\
+                      [actor_variance_spec] * risky
         return PolicyGradient(
             mdp_rep_for_rl_pg=mdp_rep_obj,
             batch_size=batch_size,
             num_batches=num_batches,
             num_action_samples=num_action_samples,
-            max_steps=self.epochs + 2,
+            max_steps=self.epochs,
             actor_lambda=actor_lambda,
             critic_lambda=critic_lambda,
             score_func=PortOpt.score_func,
             sample_actions_gen_func=PortOpt.sample_actions_gen,
-            fa_spec=PortOpt.critic_spec(critic_neurons),
-            pol_fa_spec=PortOpt.actor_spec(actor_neurons, self.num_risky)
+            fa_spec=critic_spec,
+            pol_fa_spec=policy_spec
         )
 
 
@@ -289,20 +258,20 @@ if __name__ == '__main__':
     num_epochs = 30
     rho = 0.02
     r = 0.04
-    mu = 0.08
+    mean = 0.08
     sigma = 0.07
     epsilon = 1e-6
     gamma = 0.5
 
-    optimal_allocation = (mu - r) / (sigma ** 2 * gamma)
-    nu = rho / gamma - (1. - gamma) * ((mu - r) * optimal_allocation /
-                                       (2. * gamma) + r / gamma)
-    if nu == 0:
+    optimal_allocation = (mean - r) / (sigma ** 2 * gamma)
+    opt_nu = rho / gamma - (1. - gamma) * ((mean - r) * optimal_allocation /
+                                           (2. * gamma) + r / gamma)
+    if opt_nu == 0:
         optimal_consumption = [1. / (num_epochs - t + epsilon) for t in
                                range(num_epochs)]
     else:
-        optimal_consumption = [nu / (1. + (nu * epsilon - 1) *
-                                     np.exp(-nu * (num_epochs - t)))
+        optimal_consumption = [opt_nu / (1. + (opt_nu * epsilon - 1) *
+                                         np.exp(-opt_nu * (num_epochs - t)))
                                for t in range(num_epochs)]
 
     print(optimal_consumption)
@@ -311,11 +280,11 @@ if __name__ == '__main__':
     # noinspection PyShadowingNames
     def risky_returns_gen(
         samples: int,
-        mu=mu,
+        mean=mean,
         sigma=sigma
     ) -> np.ndarray:
         return np.column_stack((np.random.normal(
-            loc=mu,
+            loc=mean,
             scale=sigma,
             size=samples
         ),))
@@ -348,8 +317,77 @@ if __name__ == '__main__':
     num_batches_val = 100
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
-    actor_neurons_val = [4]
-    critic_neurons_val = [3]
+
+    actor_mu = FuncApproxSpec(
+            state_feature_funcs=[
+                lambda s: float(s[0]),
+                lambda s: s[1]
+            ],
+            action_feature_funcs=[],
+            dnn_spec=DNNSpec(
+                neurons=[4],
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                output_activation=DNNSpec.sigmoid,
+                output_activation_deriv=DNNSpec.sigmoid_deriv
+            )
+    )
+    actor_nu = FuncApproxSpec(
+        state_feature_funcs=[
+            lambda s: float(s[0]),
+            lambda s: s[1]
+        ],
+        action_feature_funcs=[],
+        dnn_spec=DNNSpec(
+            neurons=[4],
+            hidden_activation=DNNSpec.log_squish,
+            hidden_activation_deriv=DNNSpec.log_squish_deriv,
+            output_activation=DNNSpec.pos_log_squish,
+            output_activation_deriv=DNNSpec.pos_log_squish_deriv
+        )
+    )
+    actor_mean = FuncApproxSpec(
+        state_feature_funcs=[
+            lambda s: float(s[0]),
+            lambda s: s[1]
+        ],
+        action_feature_funcs=[],
+        dnn_spec=DNNSpec(
+            neurons=[4],
+            hidden_activation=DNNSpec.log_squish,
+            hidden_activation_deriv=DNNSpec.log_squish_deriv,
+            output_activation=DNNSpec.identity,
+            output_activation_deriv=DNNSpec.identity_deriv
+        )
+    )
+    actor_variance = FuncApproxSpec(
+        state_feature_funcs=[
+            lambda s: float(s[0]),
+            lambda s: s[1]
+        ],
+        action_feature_funcs=[],
+        dnn_spec=DNNSpec(
+            neurons=[4],
+            hidden_activation=DNNSpec.log_squish,
+            hidden_activation_deriv=DNNSpec.log_squish_deriv,
+            output_activation=DNNSpec.pos_log_squish,
+            output_activation_deriv=DNNSpec.pos_log_squish_deriv
+        )
+    )
+    critic = FuncApproxSpec(
+        state_feature_funcs=[
+            lambda s: float(s[0]),
+            lambda s: s[1]
+        ],
+        action_feature_funcs=[],
+        dnn_spec=DNNSpec(
+            neurons=[4],
+            hidden_activation=DNNSpec.log_squish,
+            hidden_activation_deriv=DNNSpec.log_squish_deriv,
+            output_activation=DNNSpec.identity,
+            output_activation_deriv=DNNSpec.identity_deriv
+        )
+    )
 
     adp_pg_obj = portfolio_optimization.get_adp_pg_obj(
         num_state_samples=num_state_samples_val,
@@ -358,8 +396,11 @@ if __name__ == '__main__':
         num_batches=num_batches_val,
         actor_lambda=actor_lambda_val,
         critic_lambda=critic_lambda_val,
-        actor_neurons=actor_neurons_val,
-        critic_neurons=critic_neurons_val
+        actor_mu_spec=actor_mu,
+        actor_nu_spec=actor_nu,
+        actor_mean_spec=actor_mean,
+        actor_variance_spec=actor_variance,
+        critic_spec=critic
     )
     policy1 = adp_pg_obj.get_optimal_det_policy_func()
     actions1 = [policy1((t, 1.)) for t in range(portfolio_optimization.epochs)]
@@ -373,8 +414,11 @@ if __name__ == '__main__':
         num_action_samples=num_action_samples_val,
         actor_lambda=actor_lambda_val,
         critic_lambda=critic_lambda_val,
-        actor_neurons=actor_neurons_val,
-        critic_neurons=critic_neurons_val
+        actor_mu_spec=actor_mu,
+        actor_nu_spec=actor_nu,
+        actor_mean_spec=actor_mean,
+        actor_variance_spec=actor_variance,
+        critic_spec=critic
     )
     policy2 = pg_obj.get_optimal_det_policy_func()
     actions2 = [policy2((t, 1.)) for t in range(portfolio_optimization.epochs)]

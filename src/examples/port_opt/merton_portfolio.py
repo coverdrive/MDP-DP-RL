@@ -1,5 +1,7 @@
-from typing import NamedTuple, Callable, Sequence, Mapping
+from typing import NamedTuple, Callable, Mapping, Tuple
 from examples.port_opt.port_opt import PortOpt
+from algorithms.func_approx_spec import FuncApproxSpec
+from func_approx.dnn_spec import DNNSpec
 import numpy as np
 
 
@@ -15,10 +17,13 @@ class MertonPortfolio(NamedTuple):
     def get_optimal_allocation(self) -> np.ndarray:
         return np.linalg.inv(self.cov).dot(self.mu - self.r) / self.gamma
 
-    def get_optimal_consumption(self) -> Callable[[float], float]:
+    def get_nu(self) -> float:
         num = (self.mu - self.r).dot(self.get_optimal_allocation())
-        nu = self.rho / self.gamma - (1. - self.gamma) * (num / (2. * self.gamma)
-                                                          + self.r / self.gamma)
+        return self.rho / self.gamma - (1. - self.gamma) *\
+            (num / (2. * self.gamma) + self.r / self.gamma)
+
+    def get_optimal_consumption(self) -> Callable[[float], float]:
+        nu = self.get_nu()
 
         # noinspection PyShadowingNames
         def opt_cons_func(t: float, nu=nu) -> float:
@@ -51,13 +56,94 @@ class MertonPortfolio(NamedTuple):
         return PortOpt(
             num_risky=risky_assets,
             riskless_returns=[self.r * delta_t] * time_steps,
-            returns_gen_funcs=[lambda n: self.risky_returns_gen(n, delta_t)] *
-                              time_steps,
+            returns_gen_funcs=[lambda n: self.risky_returns_gen(n, delta_t)] * time_steps,
             cons_util_func=lambda x: self.cons_utility(x),
             beq_util_func=lambda x: self.beq_utility(x),
             discount_factor=np.exp(-self.rho * self.expiry / time_steps)
         )
 
+    def get_actor_mu_spec(self, time_steps: int) -> FuncApproxSpec:
+        tnu = self.get_nu()
+
+        # noinspection PyShadowingNames
+        def state_ff(state: Tuple[int, float], tnu=tnu) -> float:
+            tte = self.expiry * (1. - float(state[0]) / time_steps)
+            if tnu == 0:
+                ret = tte + self.epsilon
+            else:
+                ret = 1. + (tnu * self.epsilon - 1.) * np.exp(-tnu * tte)
+            return 1. / ret
+
+        return FuncApproxSpec(
+            state_feature_funcs=[state_ff],
+            action_feature_funcs=[],
+            dnn_spec=DNNSpec(
+                neurons=[],
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                output_activation=DNNSpec.sigmoid,
+                output_activation_deriv=DNNSpec.sigmoid_deriv
+            )
+        )
+
+    @staticmethod
+    def get_actor_nu_spec() -> FuncApproxSpec:
+        return FuncApproxSpec(
+            state_feature_funcs=[],
+            action_feature_funcs=[],
+            dnn_spec=DNNSpec(
+                neurons=[],
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                output_activation=DNNSpec.pos_log_squish,
+                output_activation_deriv=DNNSpec.pos_log_squish_deriv
+            )
+        )
+
+    @staticmethod
+    def get_actor_mean_spec() -> FuncApproxSpec:
+        return FuncApproxSpec(
+            state_feature_funcs=[],
+            action_feature_funcs=[],
+            dnn_spec=None
+        )
+
+    @staticmethod
+    def get_actor_variance_spec() -> FuncApproxSpec:
+        return FuncApproxSpec(
+            state_feature_funcs=[],
+            action_feature_funcs=[],
+            dnn_spec=DNNSpec(
+                neurons=[],
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                output_activation=DNNSpec.pos_log_squish,
+                output_activation_deriv=DNNSpec.pos_log_squish_deriv
+            )
+        )
+
+    # noinspection PyMethodMayBeStatic
+    def get_critic_spec(self, time_steps: int) -> FuncApproxSpec:
+        tnu = self.get_nu()
+
+        # noinspection PyShadowingNames
+        def state_ff(state: Tuple[int, float], tnu=tnu) -> float:
+            t = float(state[0]) * self.expiry / time_steps
+            tte = self.expiry - t
+            if tnu == 0:
+                ret = tte + self.epsilon
+            else:
+                ret = 1. + (tnu * self.epsilon - 1.) * np.exp(-tnu * tte)
+            return ret ** self.gamma * state[1] ** (1. - self.gamma) /\
+                np.exp(self.rho * t)
+
+        return FuncApproxSpec(
+            state_feature_funcs=[state_ff],
+            action_feature_funcs=[],
+            dnn_spec=None
+        )
+
+    # noinspection PyShadowingNames
     def get_adp_pg_optima(
         self,
         time_steps: int,
@@ -66,9 +152,7 @@ class MertonPortfolio(NamedTuple):
         num_action_samples: int,
         num_batches: int,
         actor_lambda: float,
-        critic_lambda: float,
-        actor_neurons: Sequence[int],
-        critic_neurons: Sequence[int]
+        critic_lambda: float
     ) -> Mapping[str, np.ndarray]:
         adp_pg_obj = self.get_port_opt_obj(time_steps).get_adp_pg_obj(
             num_state_samples=num_state_samples,
@@ -77,8 +161,11 @@ class MertonPortfolio(NamedTuple):
             num_batches=num_batches,
             actor_lambda=actor_lambda,
             critic_lambda=critic_lambda,
-            actor_neurons=actor_neurons,
-            critic_neurons=critic_neurons
+            actor_mu_spec=self.get_actor_mu_spec(time_steps),
+            actor_nu_spec=MertonPortfolio.get_actor_nu_spec(),
+            actor_mean_spec=MertonPortfolio.get_actor_mean_spec(),
+            actor_variance_spec=MertonPortfolio.get_actor_variance_spec(),
+            critic_spec=self.get_critic_spec(time_steps)
         )
         policy = adp_pg_obj.get_optimal_det_policy_func()
         actions = np.array([policy((t * self.expiry / time_steps, 1.)) for t in
@@ -87,6 +174,7 @@ class MertonPortfolio(NamedTuple):
         alloc = actions[:, 1:]
         return {"Consumptions": cons, "Allocations": alloc}
 
+    # noinspection PyShadowingNames
     def get_pg_optima(
         self,
         time_steps: int,
@@ -94,9 +182,7 @@ class MertonPortfolio(NamedTuple):
         num_batches: int,
         num_action_samples: int,
         actor_lambda: float,
-        critic_lambda: float,
-        actor_neurons: Sequence[int],
-        critic_neurons: Sequence[int]
+        critic_lambda: float
     ) -> Mapping[str, np.ndarray]:
         pg_obj = self.get_port_opt_obj(time_steps).get_pg_obj(
             batch_size=batch_size,
@@ -104,8 +190,11 @@ class MertonPortfolio(NamedTuple):
             num_action_samples=num_action_samples,
             actor_lambda=actor_lambda,
             critic_lambda=critic_lambda,
-            actor_neurons=actor_neurons,
-            critic_neurons=critic_neurons
+            actor_mu_spec=self.get_actor_mu_spec(time_steps),
+            actor_nu_spec=MertonPortfolio.get_actor_nu_spec(),
+            actor_mean_spec=MertonPortfolio.get_actor_mean_spec(),
+            actor_variance_spec=MertonPortfolio.get_actor_variance_spec(),
+            critic_spec=self.get_critic_spec(time_steps)
         )
         policy = pg_obj.get_optimal_det_policy_func()
         actions = np.array([policy((t * self.expiry / time_steps, 1.)) for t in
@@ -139,14 +228,12 @@ if __name__ == '__main__':
     print([opt_cons_func(t) for t in range(expiry_val)])
 
     time_steps_val = 1
-    num_state_samples_val = 50
-    num_next_state_samples_val = 20
-    num_action_samples_val = 50
-    num_batches_val = 100
-    actor_lambda_val = 0.95
-    critic_lambda_val = 0.95
-    actor_neurons_val = [4]
-    critic_neurons_val = [3]
+    num_state_samples_val = 500
+    num_next_state_samples_val = 50
+    num_action_samples_val = 1000
+    num_batches_val = 1000
+    actor_lambda_val = 0.99
+    critic_lambda_val = 0.99
 
     adp_pg_opt = mp.get_adp_pg_optima(
         time_steps=time_steps_val,
@@ -155,9 +242,7 @@ if __name__ == '__main__':
         num_action_samples=num_action_samples_val,
         num_batches=num_batches_val,
         actor_lambda=actor_lambda_val,
-        critic_lambda=critic_lambda_val,
-        actor_neurons=actor_neurons_val,
-        critic_neurons=critic_neurons_val
+        critic_lambda=critic_lambda_val
     )
     print(adp_pg_opt)
 
@@ -167,8 +252,6 @@ if __name__ == '__main__':
         num_batches=num_batches_val,
         num_action_samples=num_action_samples_val,
         actor_lambda=actor_lambda_val,
-        critic_lambda=critic_lambda_val,
-        actor_neurons=actor_neurons_val,
-        critic_neurons=critic_neurons_val
+        critic_lambda=critic_lambda_val
     )
     print(pg_opt)

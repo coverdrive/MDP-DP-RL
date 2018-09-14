@@ -2,11 +2,11 @@ from typing import NamedTuple, Sequence, Tuple
 from examples.port_opt.port_opt import PortOpt
 import numpy as np
 from algorithms.func_approx_spec import FuncApproxSpec
-from func_approx.dnn_spec import DNNSpec
 from algorithms.adp.adp_pg import ADPPolicyGradient
 from algorithms.rl_pg.pg import PolicyGradient
 from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
 from processes.mdp_rep_for_rl_pg import MDPRepForRLPG
+from func_approx.dnn_spec import DNNSpec
 
 StateType = Tuple[int, float]
 ActionType = Tuple[float]
@@ -22,7 +22,7 @@ class SingleAssetCARA(NamedTuple):
 
     def get_optimal_allocation(self) -> Sequence[float]:
         return [(self.mu - self.r) / (self.sigma ** 2 * self.gamma) *
-                (1. + self.r) ** (self.time_steps - t - 1)
+                (1. + self.r) ** (t + 1 - self.time_steps)
                 for t in range(self.time_steps)]
 
     def risky_returns(self, samples: int) -> np.ndarray:
@@ -57,48 +57,44 @@ class SingleAssetCARA(NamedTuple):
     def init_state() -> StateType:
         return 0, 1.
 
-    @staticmethod
-    def critic_spec(neurons: Sequence[int]) -> FuncApproxSpec:
+    # noinspection PyMethodMayBeStatic
+    def critic_spec(self, neurons: Sequence[int]) -> FuncApproxSpec:
+
+        def feature_func(state: StateType) -> float:
+            t = float(state[0])
+            W = state[1]
+            term1 = self.rho ** (-t)
+            term2 = np.exp((self.mu - self.r) ** 2 / (2 * self.sigma ** 2) * t)
+            term3 = np.exp(-self.gamma * (1. + self.r) ** (self.time_steps  - t) * W)
+            return term1 * term2 * term3
+
         return FuncApproxSpec(
             state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
+                feature_func
             ],
             action_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=neurons,
-                hidden_activation=DNNSpec.log_squish,
-                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                hidden_activation=DNNSpec.relu,
+                hidden_activation_deriv=DNNSpec.relu_deriv,
                 output_activation=DNNSpec.identity,
                 output_activation_deriv=DNNSpec.identity_deriv
             )
         )
 
-    @staticmethod
-    def actor_spec(neurons: Sequence[int]) \
-            -> Tuple[FuncApproxSpec, FuncApproxSpec]:
+    def actor_spec(self) -> Tuple[FuncApproxSpec, FuncApproxSpec]:
         mean = FuncApproxSpec(
             state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
+                lambda s: (1. + self.r) ** float(s[0])
             ],
             action_feature_funcs=[],
-            dnn_spec=DNNSpec(
-                neurons=neurons,
-                hidden_activation=DNNSpec.log_squish,
-                hidden_activation_deriv=DNNSpec.log_squish_deriv,
-                output_activation=DNNSpec.identity,
-                output_activation_deriv=DNNSpec.identity_deriv
-            )
+            dnn_spec=None
         )
         variance = FuncApproxSpec(
-            state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
-            ],
+            state_feature_funcs=[],
             action_feature_funcs=[],
             dnn_spec=DNNSpec(
-                neurons=neurons,
+                neurons=[],
                 hidden_activation=DNNSpec.log_squish,
                 hidden_activation_deriv=DNNSpec.log_squish_deriv,
                 output_activation=DNNSpec.pos_log_squish,
@@ -115,16 +111,16 @@ class SingleAssetCARA(NamedTuple):
     ) -> Sequence[Tuple[StateType, float]]:
         # noinspection PyPep8Naming
         t, W = state
-        if t == self.time_steps:
-            ret = [((t, 0.), self.utility(W))] * num_samples
-        else:
-            next_states = [(
-                t + 1,
-                W * (action[0] * (1. + rr) + (1. - action[0]) * (1. + self.r))
-            ) for rr in self.risky_returns(num_samples)]
-            ret = [(x, 0.) for x in next_states]
-        return ret
+        next_states = [(
+            t + 1,
+            action[0] * (1. + rr) + (W - action[0]) * (1. + self.r)
+        ) for rr in self.risky_returns(num_samples)]
+        return [(
+            x,
+            self.rho * self.utility(x[1]) if t == self.time_steps - 1 else 0.
+        ) for x in next_states]
 
+    # noinspection PyShadowingNames
     def get_adp_pg_optima(
         self,
         num_state_samples: int,
@@ -133,7 +129,6 @@ class SingleAssetCARA(NamedTuple):
         num_batches: int,
         actor_lambda: float,
         critic_lambda: float,
-        actor_neurons: Sequence[int],
         critic_neurons: Sequence[int]
     ) -> Sequence[float]:
         init_state = SingleAssetCARA.init_state()
@@ -141,7 +136,7 @@ class SingleAssetCARA(NamedTuple):
             self.rho,
             lambda n: [init_state] * n,
             lambda s, a, n: self.state_reward_gen(s, a, n),
-            lambda s: s[0] == self.time_steps
+            lambda s: s[0] == self.time_steps - 1
         )
         adp_pg_obj = ADPPolicyGradient(
             mdp_rep_for_adp_pg=mdp_rep_obj,
@@ -149,17 +144,18 @@ class SingleAssetCARA(NamedTuple):
             num_next_state_samples=num_next_state_samples,
             num_action_samples=num_action_samples,
             num_batches=num_batches,
-            max_steps=self.time_steps + 2,
+            max_steps=self.time_steps,
             actor_lambda=actor_lambda,
             critic_lambda=critic_lambda,
             score_func=SingleAssetCARA.score_func,
             sample_actions_gen_func=SingleAssetCARA.sample_actions_gen,
-            vf_fa_spec=SingleAssetCARA.critic_spec(critic_neurons),
-            pol_fa_spec=SingleAssetCARA.actor_spec(actor_neurons)
+            vf_fa_spec=self.critic_spec(critic_neurons),
+            pol_fa_spec=self.actor_spec()
         )
         policy = adp_pg_obj.get_optimal_det_policy_func()
         return [policy((t, 1.)) for t in range(self.time_steps)]
 
+    # noinspection PyShadowingNames
     def get_pg_optima(
         self,
         batch_size: int,
@@ -167,7 +163,6 @@ class SingleAssetCARA(NamedTuple):
         num_action_samples: int,
         actor_lambda: float,
         critic_lambda: float,
-        actor_neurons: Sequence[int],
         critic_neurons: Sequence[int]
     ) -> Sequence[float]:
         init_state = PortOpt.init_state()
@@ -175,31 +170,31 @@ class SingleAssetCARA(NamedTuple):
             self.rho,
             lambda: init_state,
             lambda s, a: self.state_reward_gen(s, a, 1)[0],
-            lambda s: s[0] == self.time_steps
+            lambda s: s[0] == self.time_steps - 1
         )
         pg_obj = PolicyGradient(
             mdp_rep_for_rl_pg=mdp_rep_obj,
             batch_size=batch_size,
             num_batches=num_batches,
             num_action_samples=num_action_samples,
-            max_steps=self.time_steps + 2,
+            max_steps=self.time_steps,
             actor_lambda=actor_lambda,
             critic_lambda=critic_lambda,
             score_func=SingleAssetCARA.score_func,
             sample_actions_gen_func=SingleAssetCARA.sample_actions_gen,
-            fa_spec=SingleAssetCARA.critic_spec(critic_neurons),
-            pol_fa_spec=SingleAssetCARA.actor_spec(actor_neurons)
+            fa_spec=self.critic_spec(critic_neurons),
+            pol_fa_spec=self.actor_spec()
         )
         policy = pg_obj.get_optimal_det_policy_func()
         return [policy((t, 1.)) for t in range(self.time_steps)]
 
 
 if __name__ == '__main__':
-    time_steps_val = 1
-    rho_val = 1.0
+    time_steps_val = 5
+    rho_val = 0.98
     r_val = 0.04
-    mu_val = 0.08
-    sigma_val = 0.05
+    mu_val = 0.06
+    sigma_val = 0.04
     gamma_val = 0.5
 
     mp = SingleAssetCARA(
@@ -213,14 +208,13 @@ if __name__ == '__main__':
     opt_alloc = mp.get_optimal_allocation()
     print(opt_alloc)
 
-    num_state_samples_val = 25
-    num_next_state_samples_val = 20
-    num_action_samples_val = 100
-    num_batches_val = 1000
-    actor_lambda_val = 0.95
-    critic_lambda_val = 0.95
-    actor_neurons_val = [4, 2]
-    critic_neurons_val = [3, 3]
+    num_state_samples_val = 500  # you need at least a few hundred batch size
+    num_next_state_samples_val = 50  # a few dozen next states would be good
+    num_action_samples_val = 5000  # make this a few thousand
+    num_batches_val = 1000  # a few thousand batches
+    actor_lambda_val = 0.99
+    critic_lambda_val = 0.99
+    critic_neurons = []
 
     adp_pg_opt = mp.get_adp_pg_optima(
         num_state_samples=num_state_samples_val,
@@ -229,8 +223,7 @@ if __name__ == '__main__':
         num_batches=num_batches_val,
         actor_lambda=actor_lambda_val,
         critic_lambda=critic_lambda_val,
-        actor_neurons=actor_neurons_val,
-        critic_neurons=critic_neurons_val
+        critic_neurons=critic_neurons
     )
     print(adp_pg_opt)
 
@@ -240,7 +233,7 @@ if __name__ == '__main__':
         num_action_samples=num_action_samples_val,
         actor_lambda=actor_lambda_val,
         critic_lambda=critic_lambda_val,
-        actor_neurons=actor_neurons_val,
-        critic_neurons=critic_neurons_val
+        critic_neurons=critic_neurons
     )
     print(pg_opt)
+    print(opt_alloc)
