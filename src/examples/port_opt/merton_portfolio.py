@@ -59,7 +59,7 @@ class MertonPortfolio(NamedTuple):
             returns_gen_funcs=[lambda n: self.risky_returns_gen(n, delta_t)] * time_steps,
             cons_util_func=lambda x: self.cons_utility(x),
             beq_util_func=lambda x: self.beq_utility(x),
-            discount_factor=np.exp(-self.rho * self.expiry / time_steps)
+            discount_factor=np.exp(-self.rho * delta_t)
         )
 
     def get_actor_mu_spec(self, time_steps: int) -> FuncApproxSpec:
@@ -133,9 +133,10 @@ class MertonPortfolio(NamedTuple):
             if tnu == 0:
                 ret = tte + self.epsilon
             else:
-                ret = 1. + (tnu * self.epsilon - 1.) * np.exp(-tnu * tte)
-            return ret ** self.gamma * state[1] ** (1. - self.gamma) /\
-                np.exp(self.rho * t)
+                ret = (1. + (tnu * self.epsilon - 1.) * np.exp(-tnu * tte)) / tnu
+            mult = state[1] ** (1. - self.gamma) if self.gamma != 1\
+                else np.log(state[1])
+            return ret ** self.gamma * mult / np.exp(self.rho * t)
 
         return FuncApproxSpec(
             state_feature_funcs=[state_ff],
@@ -205,7 +206,7 @@ class MertonPortfolio(NamedTuple):
 
 
 if __name__ == '__main__':
-    expiry_val = 1
+    expiry_val = 1.
     rho_val = 0.02
     r_val = 0.04
     mu_val = np.array([0.08])
@@ -222,18 +223,19 @@ if __name__ == '__main__':
         epsilon=epsilon_val,
         gamma=gamma_val
     )
+
+    time_steps_val = 10
+    num_state_samples_val = 100
+    num_next_state_samples_val = 30
+    num_action_samples_val = 1000
+    num_batches_val = 1000
+    actor_lambda_val = 0.7
+    critic_lambda_val = 0.7
+
     opt_alloc = mp.get_optimal_allocation()
     print(opt_alloc)
     opt_cons_func = mp.get_optimal_consumption()
-    print([opt_cons_func(t) for t in range(expiry_val)])
-
-    time_steps_val = 1
-    num_state_samples_val = 500
-    num_next_state_samples_val = 50
-    num_action_samples_val = 1000
-    num_batches_val = 1000
-    actor_lambda_val = 0.99
-    critic_lambda_val = 0.99
+    print([opt_cons_func(t * expiry_val / time_steps_val) for t in range(time_steps_val)])
 
     adp_pg_opt = mp.get_adp_pg_optima(
         time_steps=time_steps_val,

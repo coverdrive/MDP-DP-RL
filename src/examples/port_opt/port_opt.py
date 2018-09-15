@@ -14,6 +14,8 @@ ActionType = Tuple[float, ...]
 
 class PortOpt:
 
+    SMALL_POS = 1e-8
+
     def __init__(
         self,
         num_risky: int,
@@ -165,7 +167,8 @@ class PortOpt:
             np.full((num_samples, 1), self.riskless_returns[t]),
             self.returns_gen_funcs[t](num_samples)
         ))
-        epoch_end_wealth = [W * (1. - cons) * alloc.dot(1. + rs)
+        epoch_end_wealth = [W * (1. - cons) * max(PortOpt.SMALL_POS,
+                                                  alloc.dot(1. + rs))
                             for rs in ret_samples]
         return [(
             (t + 1, eew),

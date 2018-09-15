@@ -62,10 +62,11 @@ class SingleAssetCARA(NamedTuple):
 
         def feature_func(state: StateType) -> float:
             t = float(state[0])
+            # noinspection PyPep8Naming
             W = state[1]
             term1 = self.rho ** (-t)
             term2 = np.exp((self.mu - self.r) ** 2 / (2 * self.sigma ** 2) * t)
-            term3 = np.exp(-self.gamma * (1. + self.r) ** (self.time_steps  - t) * W)
+            term3 = np.exp(-self.gamma * (1. + self.r) ** (self.time_steps - t) * W)
             return term1 * term2 * term3
 
         return FuncApproxSpec(
