@@ -212,7 +212,7 @@ if __name__ == '__main__':
     num_state_samples_val = 500  # you need at least a few hundred batch size
     num_next_state_samples_val = 50  # a few dozen next states would be good
     num_action_samples_val = 5000  # make this a few thousand
-    num_batches_val = 1000  # a few thousand batches
+    num_batches_val = 5000  # a few thousand batches
     actor_lambda_val = 0.99
     critic_lambda_val = 0.99
     critic_neurons = []

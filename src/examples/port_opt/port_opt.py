@@ -23,13 +23,13 @@ class PortOpt:
         returns_gen_funcs: Sequence[Callable[[int], np.ndarray]],
         cons_util_func: Callable[[float], float],
         beq_util_func: Callable[[float], float],
-        discount_factor: float
+        discount_rate: float
     ) -> None:
         if PortOpt.validate_spec(
             num_risky,
             riskless_returns,
             returns_gen_funcs,
-            discount_factor
+            discount_rate
         ):
             self.num_risky: int = num_risky
             self.riskless_returns: Sequence[float] = riskless_returns
@@ -38,7 +38,7 @@ class PortOpt:
                 = returns_gen_funcs
             self.cons_util_func: Callable[[float], float] = cons_util_func
             self.beq_util_func: Callable[[float], float] = beq_util_func
-            self.discount_factor: float = discount_factor
+            self.discount_rate: float = discount_rate
         else:
             raise ValueError
 
@@ -168,12 +168,12 @@ class PortOpt:
             self.returns_gen_funcs[t](num_samples)
         ))
         epoch_end_wealth = [W * (1. - cons) * max(PortOpt.SMALL_POS,
-                                                  alloc.dot(1. + rs))
+                                                  alloc.dot(np.exp(rs)))
                             for rs in ret_samples]
         return [(
             (t + 1, eew),
             self.cons_util_func(W * cons)
-            + (self.discount_factor * self.beq_util_func(eew)
+            + (np.exp(-self.discount_rate) * self.beq_util_func(eew)
                if t == self.epochs - 1 else 0.)
         ) for eew in epoch_end_wealth]
 
@@ -193,7 +193,7 @@ class PortOpt:
     ) -> ADPPolicyGradient:
         init_state = PortOpt.init_state()
         mdp_rep_obj = MDPRepForADPPG(
-            self.discount_factor,
+            np.exp(-self.discount_rate),
             lambda n: [init_state] * n,
             lambda s, a, n: self.state_reward_gen(s, a, n),
             lambda s: s[0] == self.epochs - 1
@@ -232,7 +232,7 @@ class PortOpt:
     ) -> PolicyGradient:
         init_state = PortOpt.init_state()
         mdp_rep_obj = MDPRepForRLPG(
-            self.discount_factor,
+            np.exp(self.discount_rate),
             lambda: init_state,
             lambda s, a: self.state_reward_gen(s, a, 1)[0],
             lambda s: s[0] == self.epochs - 1
@@ -254,6 +254,22 @@ class PortOpt:
             fa_spec=critic_spec,
             pol_fa_spec=policy_spec
         )
+
+    def test_det_policy(
+        self,
+        det_pol: Callable[[StateType], ActionType],
+        num_paths: int
+    ) -> float:
+        path_returns = []
+        for _ in range(num_paths):
+            state = self.init_state()
+            path_return = 0.
+            for i in range(self.epochs):
+                action = det_pol(state)
+                state, reward = self.state_reward_gen(state, action, 1)[0]
+                path_return += reward * np.exp(-self.discount_rate * i)
+            path_returns.append(path_return)
+        return sum(path_returns) / len(path_returns)
 
 
 if __name__ == '__main__':
@@ -303,7 +319,6 @@ if __name__ == '__main__':
 
     riskfree_returns = [r] * num_epochs
     returns_genf = [risky_returns_gen] * num_epochs
-    discount = np.exp(-rho)
 
     portfolio_optimization = PortOpt(
         num_risky=risky_assets,
@@ -311,7 +326,7 @@ if __name__ == '__main__':
         returns_gen_funcs=returns_genf,
         cons_util_func=util_func,
         beq_util_func=beq_util,
-        discount_factor=discount
+        discount_rate=rho
     )
 
     num_state_samples_val = 50
