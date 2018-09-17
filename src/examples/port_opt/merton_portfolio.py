@@ -162,6 +162,7 @@ class MertonPortfolio(NamedTuple):
     def get_adp_pg_policy_func(
         self,
         time_steps: int,
+        reinforce: bool,
         num_state_samples: int,
         num_next_state_samples: int,
         num_action_samples: int,
@@ -170,6 +171,7 @@ class MertonPortfolio(NamedTuple):
         critic_lambda: float
     ) -> Callable[[Tuple[int, float]], Tuple[float, ...]]:
         adp_pg_obj = self.get_port_opt_obj(time_steps).get_adp_pg_obj(
+            reinforce=reinforce,
             num_state_samples=num_state_samples,
             num_next_state_samples=num_next_state_samples,
             num_action_samples=num_action_samples,
@@ -197,6 +199,7 @@ class MertonPortfolio(NamedTuple):
     def get_pg_policy_func(
         self,
         time_steps: int,
+        reinforce: bool,
         batch_size: int,
         num_batches: int,
         num_action_samples: int,
@@ -204,6 +207,7 @@ class MertonPortfolio(NamedTuple):
         critic_lambda: float
     ) -> Callable[[Tuple[int, float]], Tuple[float, ...]]:
         pg_obj = self.get_port_opt_obj(time_steps).get_pg_obj(
+            reinforce=reinforce,
             batch_size=batch_size,
             num_batches=num_batches,
             num_action_samples=num_action_samples,
@@ -286,10 +290,11 @@ if __name__ == '__main__':
     )
 
     time_steps_val = 5
-    num_state_samples_val = 50
+    reinforce_val = True
+    num_state_samples_val = 500
     num_next_state_samples_val = 30
     num_action_samples_val = 200
-    num_batches_val = 1000
+    num_batches_val = 3000
     actor_lambda_val = 0.99
     critic_lambda_val = 0.99
 
@@ -300,6 +305,7 @@ if __name__ == '__main__':
 
     adp_pg_pol = mp.get_adp_pg_policy_func(
         time_steps=time_steps_val,
+        reinforce=reinforce_val,
         num_state_samples=num_state_samples_val,
         num_next_state_samples=num_next_state_samples_val,
         num_action_samples=num_action_samples_val,
@@ -315,6 +321,7 @@ if __name__ == '__main__':
 
     pg_pol = mp.get_pg_policy_func(
         time_steps=time_steps_val,
+        reinforce=reinforce_val,
         batch_size=num_state_samples_val,
         num_batches=num_batches_val,
         num_action_samples=num_action_samples_val,

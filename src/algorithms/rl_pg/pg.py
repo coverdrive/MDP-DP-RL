@@ -14,6 +14,7 @@ class PolicyGradient(OptBase):
     def __init__(
         self,
         mdp_rep_for_rl_pg: MDPRepForRLPG,
+        reinforce: bool,
         batch_size: int,
         num_batches: int,
         num_action_samples: int,
@@ -27,6 +28,7 @@ class PolicyGradient(OptBase):
 
     ) -> None:
         self.mdp_rep: MDPRepForRLPG = mdp_rep_for_rl_pg
+        self.reinforce: bool = reinforce
         self.batch_size: int = batch_size
         self.num_batches: int = num_batches
         self.num_action_samples: int = num_action_samples
@@ -132,7 +134,72 @@ class PolicyGradient(OptBase):
 
         return pol
 
-    def get_optimal_stoch_policy_func(self) -> PolicyType:
+    def get_path(
+        self,
+        start_state: S
+    ) -> Sequence[Tuple[S, Sequence[float], A, float]]:
+        res = []
+        state = start_state
+        steps = 0
+        terminate = False
+
+        while not terminate:
+            pdf_params = [f.get_func_eval(state) for f in self.pol_fa]
+            action = self.sample_actions_gen_func(pdf_params, 1)[0]
+            next_state, reward = self.mdp_rep.state_reward_gen_func(state, action)
+            res.append((
+                state,
+                pdf_params,
+                action,
+                reward
+            ))
+            steps += 1
+            terminate = steps >= self.max_steps or\
+                self.mdp_rep.terminal_state_func(state)
+            state = next_state
+        return res
+
+    def get_optimal_reinforce_func(self) -> PolicyType:
+        mo = self.mdp_rep
+        sc_func = self.score_func
+
+        for _ in range(self.num_batches):
+            pol_grads = [
+                [np.zeros_like(layer) for layer in this_pol_fa.params]
+                for this_pol_fa in self.pol_fa
+            ]
+            for _ in range(self.batch_size):
+                states = []
+                disc_return_scores = []
+                return_val = 0.
+                init_state = mo.init_state_gen_func()
+                this_path = self.get_path(init_state)
+
+                for i, (s, pp, a, r) in enumerate(this_path[::-1]):
+                    i1 = len(this_path) - i - 1
+                    states.append(s)
+                    return_val = return_val * mo.gamma + r
+                    disc_return_scores.append(
+                        [return_val * mo.gamma ** i1 * x for x in sc_func(a, pp)]
+                    )
+
+                pg_arr = np.vstack(disc_return_scores)
+                for i, pp_fa in enumerate(self.pol_fa):
+                    this_pol_grad = pp_fa.get_sum_objective_gradient(
+                        states,
+                        - pg_arr[:, i]
+                    )
+                    for j in range(len(pol_grads[i])):
+                        pol_grads[i][j] += this_pol_grad[j]
+
+            for i, pp_fa in enumerate(self.pol_fa):
+                pp_fa.update_params_from_gradient(
+                    [pg / self.batch_size for pg in pol_grads[i]]
+                )
+
+        return self.get_policy_as_policy_type()
+
+    def get_optimal_tdl_func(self) -> PolicyType:
         mo = self.mdp_rep
         sc_func = self.score_func
 
@@ -146,30 +213,18 @@ class PolicyGradient(OptBase):
                 states = []
                 deltas = []
                 disc_scores = []
-                steps = 0
-                terminate = False
-                state = mo.init_state_gen_func()
+                init_state = mo.init_state_gen_func()
+                this_path = self.get_path(init_state)
 
-                while not terminate:
-                    pdf_params = [f.get_func_eval(state) for f in self.pol_fa]
-                    action = self.sample_actions_gen_func(pdf_params, 1)[0]
-                    next_state, reward = self.mdp_rep.state_reward_gen_func(
-                        state,
-                        action
-                    )
-                    delta = reward + mo.gamma *\
-                        self.vf_fa.get_func_eval(next_state) - \
-                        self.vf_fa.get_func_eval(state)
-                    states.append(state)
+                for i, (s, pp, a, r) in enumerate(this_path[::-1]):
+                    i1 = len(this_path) - i - 1
+                    fut_return = mo.gamma * self.vf_fa.get_func_eval(this_path[i1 + 1][0])\
+                        if i > 0 else 0.
+                    delta = r + fut_return - self.vf_fa.get_func_eval(s)
+                    states.append(s)
                     deltas.append(delta)
-                    disc_scores.append(
-                        [gamma_pow * x for x in sc_func(action, pdf_params)]
-                    )
+                    disc_scores.append([gamma_pow * x for x in sc_func(a, pp)])
                     gamma_pow *= mo.gamma
-                    steps += 1
-                    terminate = steps >= self.max_steps or \
-                        self.mdp_rep.terminal_state_func(state)
-                    state = next_state
 
                 self.vf_fa.update_params_from_gradient(
                     self.vf_fa.get_el_tr_sum_objective_gradient(
@@ -202,6 +257,10 @@ class PolicyGradient(OptBase):
             # print("----")
 
         return self.get_policy_as_policy_type()
+
+    def get_optimal_stoch_policy_func(self) -> PolicyType:
+        return self.get_optimal_reinforce_func() if self.reinforce \
+            else self.get_optimal_tdl_func()
 
     def get_optimal_det_policy_func(self) -> Callable[[S], A]:
         papt = self.get_optimal_stoch_policy_func()
@@ -237,6 +296,8 @@ if __name__ == '__main__':
     gamma_val = 0.9
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_pg()
+
+    reinforce_val = False
 
     num_batches_val = 1000
     batch_size_val = 10
@@ -280,6 +341,7 @@ if __name__ == '__main__':
     sa_gen_func = lambda p, n: [((10,) if x == 1 else (-10,)) for x in binomial(1, p[0], n)]
     pg_obj = PolicyGradient(
         mdp_rep_for_rl_pg=mdp_rep_obj,
+        reinforce=reinforce_val,
         num_batches=num_batches_val,
         batch_size=batch_size_val,
         num_action_samples=num_action_samples_val,

@@ -124,6 +124,7 @@ class SingleAssetCARA(NamedTuple):
     # noinspection PyShadowingNames
     def get_adp_pg_optima(
         self,
+        reinforce: bool,
         num_state_samples: int,
         num_next_state_samples: int,
         num_action_samples: int,
@@ -141,6 +142,7 @@ class SingleAssetCARA(NamedTuple):
         )
         adp_pg_obj = ADPPolicyGradient(
             mdp_rep_for_adp_pg=mdp_rep_obj,
+            reinforce=reinforce,
             num_state_samples=num_state_samples,
             num_next_state_samples=num_next_state_samples,
             num_action_samples=num_action_samples,
@@ -159,6 +161,7 @@ class SingleAssetCARA(NamedTuple):
     # noinspection PyShadowingNames
     def get_pg_optima(
         self,
+        reinforce: bool,
         batch_size: int,
         num_batches: int,
         num_action_samples: int,
@@ -175,6 +178,7 @@ class SingleAssetCARA(NamedTuple):
         )
         pg_obj = PolicyGradient(
             mdp_rep_for_rl_pg=mdp_rep_obj,
+            reinforce=reinforce,
             batch_size=batch_size,
             num_batches=num_batches,
             num_action_samples=num_action_samples,
@@ -209,6 +213,7 @@ if __name__ == '__main__':
     opt_alloc = mp.get_optimal_allocation()
     print(opt_alloc)
 
+    reinforce_val = True
     num_state_samples_val = 500  # you need at least a few hundred batch size
     num_next_state_samples_val = 50  # a few dozen next states would be good
     num_action_samples_val = 5000  # make this a few thousand
@@ -218,6 +223,7 @@ if __name__ == '__main__':
     critic_neurons = []
 
     adp_pg_opt = mp.get_adp_pg_optima(
+        reinforce=reinforce_val,
         num_state_samples=num_state_samples_val,
         num_next_state_samples=num_next_state_samples_val,
         num_action_samples=num_action_samples_val,
@@ -229,6 +235,7 @@ if __name__ == '__main__':
     print(adp_pg_opt)
 
     pg_opt = mp.get_pg_optima(
+        reinforce=reinforce_val,
         batch_size=num_state_samples_val,
         num_batches=num_batches_val,
         num_action_samples=num_action_samples_val,

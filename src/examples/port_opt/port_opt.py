@@ -179,6 +179,7 @@ class PortOpt:
 
     def get_adp_pg_obj(
         self,
+        reinforce: bool,
         num_state_samples: int,
         num_next_state_samples: int,
         num_action_samples: int,
@@ -204,6 +205,7 @@ class PortOpt:
                       [actor_variance_spec] * risky
         return ADPPolicyGradient(
             mdp_rep_for_adp_pg=mdp_rep_obj,
+            reinforce=reinforce,
             num_state_samples=num_state_samples,
             num_next_state_samples=num_next_state_samples,
             num_action_samples=num_action_samples,
@@ -219,6 +221,7 @@ class PortOpt:
 
     def get_pg_obj(
         self,
+        reinforce: bool,
         batch_size: int,
         num_batches: int,
         num_action_samples: int,
@@ -243,6 +246,7 @@ class PortOpt:
                       [actor_variance_spec] * risky
         return PolicyGradient(
             mdp_rep_for_rl_pg=mdp_rep_obj,
+            reinforce=reinforce,
             batch_size=batch_size,
             num_batches=num_batches,
             num_action_samples=num_action_samples,
@@ -329,6 +333,7 @@ if __name__ == '__main__':
         discount_rate=rho
     )
 
+    reinforce_val = True
     num_state_samples_val = 50
     num_next_state_samples_val = 20
     num_action_samples_val = 50
@@ -337,18 +342,18 @@ if __name__ == '__main__':
     critic_lambda_val = 0.95
 
     actor_mu = FuncApproxSpec(
-            state_feature_funcs=[
-                lambda s: float(s[0]),
-                lambda s: s[1]
-            ],
-            action_feature_funcs=[],
-            dnn_spec=DNNSpec(
-                neurons=[4],
-                hidden_activation=DNNSpec.log_squish,
-                hidden_activation_deriv=DNNSpec.log_squish_deriv,
-                output_activation=DNNSpec.sigmoid,
-                output_activation_deriv=DNNSpec.sigmoid_deriv
-            )
+        state_feature_funcs=[
+            lambda s: float(s[0]),
+            lambda s: s[1]
+        ],
+        action_feature_funcs=[],
+        dnn_spec=DNNSpec(
+            neurons=[4],
+            hidden_activation=DNNSpec.log_squish,
+            hidden_activation_deriv=DNNSpec.log_squish_deriv,
+            output_activation=DNNSpec.sigmoid,
+            output_activation_deriv=DNNSpec.sigmoid_deriv
+        )
     )
     actor_nu = FuncApproxSpec(
         state_feature_funcs=[
@@ -408,6 +413,7 @@ if __name__ == '__main__':
     )
 
     adp_pg_obj = portfolio_optimization.get_adp_pg_obj(
+        reinforce=reinforce_val,
         num_state_samples=num_state_samples_val,
         num_next_state_samples=num_next_state_samples_val,
         num_action_samples=num_action_samples_val,
@@ -427,6 +433,7 @@ if __name__ == '__main__':
     print(risky_allocations1)
 
     pg_obj = portfolio_optimization.get_pg_obj(
+        reinforce=reinforce_val,
         batch_size=num_state_samples_val,
         num_batches=num_batches_val,
         num_action_samples=num_action_samples_val,
