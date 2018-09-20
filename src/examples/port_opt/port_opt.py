@@ -278,26 +278,14 @@ class PortOpt:
 
 if __name__ == '__main__':
     risky_assets = 1
-    num_epochs = 30
-    rho = 0.02
+    num_epochs = 5
+    rho = 0.04
     r = 0.04
     mean = 0.08
-    sigma = 0.07
-    epsilon = 1e-6
-    gamma = 0.5
+    sigma = 0.03
+    gamma = 0.2
 
     optimal_allocation = (mean - r) / (sigma ** 2 * gamma)
-    opt_nu = rho / gamma - (1. - gamma) * ((mean - r) * optimal_allocation /
-                                           (2. * gamma) + r / gamma)
-    if opt_nu == 0:
-        optimal_consumption = [1. / (num_epochs - t + epsilon) for t in
-                               range(num_epochs)]
-    else:
-        optimal_consumption = [opt_nu / (1. + (opt_nu * epsilon - 1) *
-                                         np.exp(-opt_nu * (num_epochs - t)))
-                               for t in range(num_epochs)]
-
-    print(optimal_consumption)
     print(optimal_allocation)
 
     # noinspection PyShadowingNames
@@ -312,14 +300,13 @@ if __name__ == '__main__':
             size=samples
         ),))
 
-    # noinspection PyShadowingNames
-    def util_func(x: float, gamma=gamma) -> float:
-        gam = 1. - gamma
-        return x ** gam / gam
+    def util_func(_: float) -> float:
+        return 0.
 
     # noinspection PyShadowingNames
-    def beq_util(x: float, gamma=gamma, epsilon=epsilon) -> float:
-        return epsilon ** gamma * util_func(x)
+    def beq_util(x: float, gamma=gamma) -> float:
+        gam = 1. - gamma
+        return x ** gam / gam if gam != 0 else np.log(x)
 
     riskfree_returns = [r] * num_epochs
     returns_genf = [risky_returns_gen] * num_epochs
@@ -334,21 +321,18 @@ if __name__ == '__main__':
     )
 
     reinforce_val = True
-    num_state_samples_val = 50
-    num_next_state_samples_val = 20
+    num_state_samples_val = 500
+    num_next_state_samples_val = 30
     num_action_samples_val = 50
-    num_batches_val = 100
-    actor_lambda_val = 0.95
-    critic_lambda_val = 0.95
+    num_batches_val = 3000
+    actor_lambda_val = 0.99
+    critic_lambda_val = 0.99
 
     actor_mu = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: float(s[0]),
-            lambda s: s[1]
-        ],
+        state_feature_funcs=[],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[4],
+            neurons=[],
             hidden_activation=DNNSpec.log_squish,
             hidden_activation_deriv=DNNSpec.log_squish_deriv,
             output_activation=DNNSpec.sigmoid,
@@ -356,13 +340,10 @@ if __name__ == '__main__':
         )
     )
     actor_nu = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: float(s[0]),
-            lambda s: s[1]
-        ],
+        state_feature_funcs=[],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[4],
+            neurons=[],
             hidden_activation=DNNSpec.log_squish,
             hidden_activation_deriv=DNNSpec.log_squish_deriv,
             output_activation=DNNSpec.pos_log_squish,
@@ -370,27 +351,15 @@ if __name__ == '__main__':
         )
     )
     actor_mean = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: float(s[0]),
-            lambda s: s[1]
-        ],
+        state_feature_funcs=[],
         action_feature_funcs=[],
-        dnn_spec=DNNSpec(
-            neurons=[4],
-            hidden_activation=DNNSpec.log_squish,
-            hidden_activation_deriv=DNNSpec.log_squish_deriv,
-            output_activation=DNNSpec.identity,
-            output_activation_deriv=DNNSpec.identity_deriv
-        )
+        dnn_spec=None
     )
     actor_variance = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: float(s[0]),
-            lambda s: s[1]
-        ],
+        state_feature_funcs=[],
         action_feature_funcs=[],
         dnn_spec=DNNSpec(
-            neurons=[4],
+            neurons=[],
             hidden_activation=DNNSpec.log_squish,
             hidden_activation_deriv=DNNSpec.log_squish_deriv,
             output_activation=DNNSpec.pos_log_squish,
@@ -398,18 +367,9 @@ if __name__ == '__main__':
         )
     )
     critic = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: float(s[0]),
-            lambda s: s[1]
-        ],
+        state_feature_funcs=[],
         action_feature_funcs=[],
-        dnn_spec=DNNSpec(
-            neurons=[4],
-            hidden_activation=DNNSpec.log_squish,
-            hidden_activation_deriv=DNNSpec.log_squish_deriv,
-            output_activation=DNNSpec.identity,
-            output_activation_deriv=DNNSpec.identity_deriv
-        )
+        dnn_spec=None
     )
 
     adp_pg_obj = portfolio_optimization.get_adp_pg_obj(
