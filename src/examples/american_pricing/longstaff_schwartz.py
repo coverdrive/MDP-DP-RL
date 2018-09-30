@@ -1,6 +1,7 @@
 from typing import Callable, Sequence
 import numpy as np
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
+import matplotlib.pyplot as plt
 
 
 class LongstaffSchwartz:
@@ -79,6 +80,10 @@ class LongstaffSchwartz:
                 estimate = x_vals.dot(
                     np.linalg.lstsq(x_vals, y_vals, rcond=None)[0]
                 )
+                # plt.scatter([paths[i, t] for i in indices], y_vals, c='r')
+                # plt.scatter([paths[i, t] for i in indices], estimate, c='b')
+                # plt.show()
+
                 for i, ind in enumerate(indices):
                     if payoff[ind] > estimate[i]:
                         cashflow[ind] = payoff[ind]
@@ -91,15 +96,15 @@ class LongstaffSchwartz:
 
 if __name__ == '__main__':
     spot_price_val = 80.0
-    strike_val = 74.8
-    payoff_func = lambda _, x: strike_val - x[-1]
-    expiry_val = 10.0
+    strike_val = 75.0
+    payoff_func = lambda _, x: x[-1] - strike_val
+    expiry_val = 4.0
     rr = 0.03
     sigma_val = 0.25
 
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
     ebsp = EuropeanBSPricing(
-        is_call=False,
+        is_call=True,
         spot_price=spot_price_val,
         strike=strike_val,
         expiry=expiry_val,
@@ -107,8 +112,6 @@ if __name__ == '__main__':
         sigma=sigma_val
     )
     print(ebsp.option_price)
-    # noinspection PyShadowingNames
-    drift_func = lambda t, x, rr=rr: rr * x
     # noinspection PyShadowingNames
     dispersion_func = lambda t, x, sigma_val=sigma_val: sigma_val * x
     # noinspection PyShadowingNames
@@ -130,10 +133,20 @@ if __name__ == '__main__':
     from numpy.polynomial.laguerre import lagval
     num_laguerre = 10
     ident = np.eye(num_laguerre)
+
+    # noinspection PyShadowingNames
+    def feature_func(
+        _: float,
+        x: np.ndarray,
+        i: int,
+        ident=ident
+    ) -> float:
+        return lagval(x[-1], ident[i])
+
     print(gp.get_price(
         num_dt=num_dt_val,
         num_paths=num_paths_val,
-        feature_funcs=[lambda t, x: np.exp(-x[-1] / 2) * lagval(x[-1], ident[i])
-                       for i in range(num_laguerre)]
+        feature_funcs=[(lambda t, x, i=i: feature_func(t, x, i)) for i in
+                       range(num_laguerre)]
     ))
 

@@ -74,15 +74,15 @@ class GridPricing:
 
 if __name__ == '__main__':
     spot_price_val = 80.0
-    strike_val = 74.8
-    payoff_func = lambda _, x: strike_val - x
-    expiry_val = 10.0
+    strike_val = 75.0
+    payoff_func = lambda _, x: x - strike_val
+    expiry_val = 4.0
     rr = 0.03
     sigma_val = 0.25
 
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
     ebsp = EuropeanBSPricing(
-        is_call=False,
+        is_call=True,
         spot_price=spot_price_val,
         strike=strike_val,
         expiry=expiry_val,
@@ -90,8 +90,6 @@ if __name__ == '__main__':
         sigma=sigma_val
     )
     print(ebsp.option_price)
-    # noinspection PyShadowingNames
-    drift_func = lambda t, x, rr=rr: rr * x
     # noinspection PyShadowingNames
     dispersion_func = lambda t, x, sigma_val=sigma_val: sigma_val * x
     # noinspection PyShadowingNames

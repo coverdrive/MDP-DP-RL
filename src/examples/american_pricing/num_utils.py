@@ -3,6 +3,7 @@ import numpy as np
 from scipy.integrate import trapz
 from src.examples.american_pricing.bs_pricing import EuropeanBSPricing
 from scipy.optimize import curve_fit
+from numpy.polynomial.laguerre import lagval
 import matplotlib.pyplot as plt
 
 
@@ -92,18 +93,29 @@ def plot_fitted_call_prices(
         ydata=option_prices,
         jac=jac_func
     )[0]
-    print(fp)
-    pred_option_prices = fit_func(spot_prices, fp[0], fp[1], fp[2])
+    pred1_option_prices = fit_func(spot_prices, fp[0], fp[1], fp[2])
+
+    num_laguerre = 10
+    ident = np.eye(num_laguerre)
+    spot_features = np.array([[lagval(s, ident[i]) for i in
+                               range(num_laguerre)] for s in spot_prices])
+    lp = np.linalg.lstsq(
+        spot_features,
+        np.array(option_prices),
+        rcond=None
+    )[0]
+    pred2_option_prices = spot_features.dot(lp)
 
     plt.plot(spot_prices, option_prices, 'r')
-    plt.plot(spot_prices, pred_option_prices, 'b')
+    plt.plot(spot_prices, pred1_option_prices, 'b')
+    plt.plot(spot_prices, pred2_option_prices, 'g')
     plt.show()
 
 
 if __name__ == '__main__':
-    is_call_val = True
+    is_call_val = False
     strike_val = 80.0
-    expiry_val = 0.1
+    expiry_val = 0.4
     r_val = 0.02
     sigma_val = 0.3
 
