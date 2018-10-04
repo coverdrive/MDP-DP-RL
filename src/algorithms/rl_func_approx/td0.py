@@ -19,7 +19,6 @@ class TD0(RLFuncApproxBase):
             softmax: bool,
             epsilon: float,
             epsilon_half_life: float,
-            learning_rate: float,
             num_episodes: int,
             max_steps: int,
             fa_spec: FuncApproxSpec
@@ -35,7 +34,6 @@ class TD0(RLFuncApproxBase):
             fa_spec=fa_spec
         )
         self.algorithm: TDAlgorithm = algorithm
-        self.learning_rate: float = learning_rate
 
     def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         episodes = 0
@@ -148,7 +146,8 @@ if __name__ == '__main__':
             lambda a: 1. if a == 'b' else 0.,
             lambda a: 1. if a == 'c' else 0.,
         ],
-        dnn_spec=None
+        dnn_spec=None,
+        learning_rate=learning_rate_val
     )
     sarsa_obj = TD0(
         mdp_rep_obj,
@@ -156,7 +155,6 @@ if __name__ == '__main__':
         softmax_flag,
         epsilon_val,
         epsilon_half_life_val,
-        learning_rate_val,
         episodes_limit,
         max_steps_val,
         fa_spec_val

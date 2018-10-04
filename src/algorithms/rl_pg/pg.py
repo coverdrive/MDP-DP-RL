@@ -305,6 +305,7 @@ if __name__ == '__main__':
     max_steps_val = 100
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
+    learning_rate_val = 0.1
     fa_spec_val = FuncApproxSpec(
         state_feature_funcs=[
             lambda s: 1. if s == 1 else 0.,
@@ -318,7 +319,8 @@ if __name__ == '__main__':
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.identity,
             output_activation_deriv=DNNSpec.identity_deriv
-        )
+        ),
+        learning_rate=learning_rate_val
     )
     pol_fa_spec_val = [FuncApproxSpec(
         state_feature_funcs=[
@@ -333,7 +335,8 @@ if __name__ == '__main__':
             hidden_activation_deriv=DNNSpec.relu_deriv,
             output_activation=DNNSpec.sigmoid,
             output_activation_deriv=DNNSpec.sigmoid_deriv
-        )
+        ),
+        learning_rate=learning_rate_val
     )]
     # noinspection PyPep8
     this_score_func = lambda a, p: [1. / p[0] if a == (10,) else 1. / (p[0] - 1.)]

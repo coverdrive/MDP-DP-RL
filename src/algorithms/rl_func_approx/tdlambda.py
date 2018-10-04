@@ -20,7 +20,6 @@ class TDLambda(RLFuncApproxBase):
         softmax: bool,
         epsilon: float,
         epsilon_half_life: float,
-        learning_rate: float,
         lambd: float,
         num_episodes: int,
         max_steps: int,
@@ -38,7 +37,6 @@ class TDLambda(RLFuncApproxBase):
             fa_spec=fa_spec
         )
         self.algorithm: TDAlgorithm = algorithm
-        self.learning_rate: float = learning_rate
         self.gamma_lambda = self.mdp_rep.gamma * lambd
         self.offline = offline
 
@@ -202,7 +200,8 @@ if __name__ == '__main__':
             lambda a: 1. if a == 'b' else 0.,
             lambda a: 1. if a == 'c' else 0.,
         ],
-        dnn_spec=None
+        dnn_spec=None,
+        learning_rate=learning_rate_val
     )
     esl_obj = TDLambda(
         mdp_rep_obj,
@@ -210,7 +209,6 @@ if __name__ == '__main__':
         softmax_flag,
         epsilon_val,
         epsilon_half_life_val,
-        learning_rate_val,
         lambda_val,
         episodes_limit,
         max_steps_val,
