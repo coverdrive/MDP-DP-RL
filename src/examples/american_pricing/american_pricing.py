@@ -1,10 +1,14 @@
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Tuple, Set
 import numpy as np
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
-import matplotlib.pyplot as plt
+from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
+from random import choice
+
+StateType = Tuple[float, np.ndarray]
+ActionType = bool
 
 
-class LongstaffSchwartz:
+class AmericanPricing:
     """
     In the risk-neutral measure, the underlying price x_t
     follows the Ito process: dx_t = r_t x_t dt + dispersion(t, x_t) dz_t
@@ -13,8 +17,8 @@ class LongstaffSchwartz:
     eg: \sum_{i=0}^t x_i / (t+1) - K)
     expiry is the time to expiry of american option (in years)
     dispersion(t, x_t) is a function from (t, x_t) to dispersion
-    r_t is a function from (time t) to risk-free rate
     We define ir_t = \int_0^t r_u du, so discount D_t = e^{- ir_t}
+    where r_t is the infinitesimal risk-free rate at time t
     """
 
     def __init__(
@@ -23,17 +27,15 @@ class LongstaffSchwartz:
         payoff: Callable[[float, np.ndarray], float],
         expiry: float,
         dispersion: Callable[[float, float], float],
-        r: Callable[[float], float],
         ir: Callable[[float], float]
     ) -> None:
         self.spot_price: float = spot_price
         self.payoff: Callable[[float, np.ndarray], float] = payoff
         self.expiry: float = expiry
         self.dispersion: Callable[[float, float], float] = dispersion
-        self.r: Callable[[float], float] = r
         self.ir: Callable[[float], float] = ir
 
-    def get_price(
+    def get_ls_price(
         self,
         num_dt: int,
         num_paths: int,
@@ -93,13 +95,71 @@ class LongstaffSchwartz:
             np.average(cashflow * np.exp(-self.ir(dt)))
         )
 
+    def state_reward_gen(
+        self,
+        state: StateType,
+        action: ActionType,
+        delta_t: float
+    ) -> Tuple[StateType, float]:
+        t, price_arr = state
+        reward = np.exp(-self.ir(t)) * self.payoff(t, price_arr) if action else 0.
+        m, v = get_future_price_mean_var(
+            price_arr[-1],
+            t,
+            delta_t,
+            self.ir,
+            self.dispersion
+        )
+        next_price = np.random.normal(m, np.sqrt(v))
+        price1 = np.append(price_arr, next_price)
+        next_t = (self.expiry if action else t) + delta_t
+        return (next_t, price1), reward
+
+    def get_rl_fa_obj(
+        self,
+        num_dt: int
+    ) -> MDPRepForRLFA:
+        dt = self.expiry / num_dt
+
+        def sa_func(_: StateType) -> Set[ActionType]:
+            return {True, False}
+
+        def terminal_state(
+            s: StateType
+        ) -> bool:
+            return s[0] > self.expiry
+
+        # noinspection PyShadowingNames
+        def sr_func(
+            s: StateType,
+            a: ActionType,
+            dt=dt
+        ) -> Tuple[StateType, float]:
+            return self.state_reward_gen(s, a, dt)
+
+        def init_s() -> StateType:
+            return 0., np.array([self.spot_price])
+
+        def init_sa() -> Tuple[StateType, ActionType]:
+            return init_s(), choice([True, False])
+
+        # noinspection PyShadowingNames
+        return MDPRepForRLFA(
+            state_action_func=sa_func,
+            gamma=1.,
+            terminal_state_func=terminal_state,
+            state_reward_gen_func=sr_func,
+            init_state_gen=init_s,
+            init_state_action_gen=init_sa
+        )
+
 
 if __name__ == '__main__':
     spot_price_val = 80.0
-    strike_val = 75.0
+    strike_val = 85.0
     payoff_func = lambda _, x: x[-1] - strike_val
-    expiry_val = 4.0
-    rr = 0.03
+    expiry_val = 3.0
+    r_val = 0.03
     sigma_val = 0.25
 
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
@@ -108,23 +168,20 @@ if __name__ == '__main__':
         spot_price=spot_price_val,
         strike=strike_val,
         expiry=expiry_val,
-        r=rr,
+        r=r_val,
         sigma=sigma_val
     )
     print(ebsp.option_price)
     # noinspection PyShadowingNames
     dispersion_func = lambda t, x, sigma_val=sigma_val: sigma_val * x
     # noinspection PyShadowingNames
-    r_func = lambda t, rr=rr: rr
-    # noinspection PyShadowingNames
-    ir_func = lambda t, rr=rr: rr * t
+    ir_func = lambda t, r_val=r_val: r_val * t
 
-    gp = LongstaffSchwartz(
+    gp = AmericanPricing(
         spot_price=spot_price_val,
         payoff=payoff_func,
         expiry=expiry_val,
         dispersion=dispersion_func,
-        r=r_func,
         ir=ir_func
     )
     dt_val = 0.1
@@ -141,12 +198,16 @@ if __name__ == '__main__':
         i: int,
         ident=ident
     ) -> float:
+        # noinspection PyTypeChecker
         return lagval(x[-1], ident[i])
 
-    print(gp.get_price(
+    rl_fa_obj = gp.get_rl_fa_obj(num_dt_val)
+
+    ls_price = gp.get_ls_price(
         num_dt=num_dt_val,
         num_paths=num_paths_val,
         feature_funcs=[(lambda t, x, i=i: feature_func(t, x, i)) for i in
                        range(num_laguerre)]
-    ))
+    )
+    print(ls_price)
 

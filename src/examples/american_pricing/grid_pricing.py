@@ -74,9 +74,9 @@ class GridPricing:
 
 if __name__ == '__main__':
     spot_price_val = 80.0
-    strike_val = 75.0
+    strike_val = 85.0
     payoff_func = lambda _, x: x - strike_val
-    expiry_val = 4.0
+    expiry_val = 3.0
     rr = 0.03
     sigma_val = 0.25
 
