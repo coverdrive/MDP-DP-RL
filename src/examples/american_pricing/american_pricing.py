@@ -1,7 +1,11 @@
 from typing import Callable, Sequence, Tuple, Set
 import numpy as np
+from algorithms.td_algo_enum import TDAlgorithm
+from algorithms.rl_func_approx.tdlambda import TDLambda
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
+from algorithms.func_approx_spec import FuncApproxSpec
+from func_approx.dnn_spec import DNNSpec
 from random import choice
 
 StateType = Tuple[float, np.ndarray]
@@ -115,10 +119,19 @@ class AmericanPricing:
         next_t = (self.expiry if action else t) + delta_t
         return (next_t, price1), reward
 
-    def get_rl_fa_obj(
+    def get_tdl_obj(
         self,
-        num_dt: int
-    ) -> MDPRepForRLFA:
+        num_dt: int,
+        algorithm: TDAlgorithm,
+        softmax: bool,
+        epsilon: float,
+        epsilon_half_life: float,
+        lambd: float,
+        num_episodes: int,
+        neurons: Sequence[int],
+        learning_rate: float,
+        offline: bool
+    ) -> TDLambda:
         dt = self.expiry / num_dt
 
         def sa_func(_: StateType) -> Set[ActionType]:
@@ -144,13 +157,43 @@ class AmericanPricing:
             return init_s(), choice([True, False])
 
         # noinspection PyShadowingNames
-        return MDPRepForRLFA(
+        mdp_rep_obj = MDPRepForRLFA(
             state_action_func=sa_func,
             gamma=1.,
             terminal_state_func=terminal_state,
             state_reward_gen_func=sr_func,
             init_state_gen=init_s,
             init_state_action_gen=init_sa
+        )
+
+        return TDLambda(
+            mdp_rep_for_rl=mdp_rep_obj,
+            algorithm=algorithm,
+            softmax=softmax,
+            epsilon=epsilon,
+            epsilon_half_life=epsilon_half_life,
+            lambd=lambd,
+            num_episodes=num_episodes,
+            max_steps=num_dt + 1,
+            fa_spec=FuncApproxSpec(
+                state_feature_funcs=[
+                    lambda s: s[0],
+                    lambda s: s[1][-1]
+                ],
+                action_feature_funcs=[
+                    lambda a: 1. if a else 0.,
+                    lambda a: 0. if a else 1.
+                ],
+                dnn_spec=DNNSpec(
+                    neurons=neurons,
+                    hidden_activation=DNNSpec.log_squish,
+                    hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                    output_activation=DNNSpec.pos_log_squish,
+                    output_activation_deriv=DNNSpec.pos_log_squish_deriv
+                ),
+                learning_rate=learning_rate
+            ),
+            offline=offline
         )
 
 
@@ -201,8 +244,6 @@ if __name__ == '__main__':
         # noinspection PyTypeChecker
         return lagval(x[-1], ident[i])
 
-    rl_fa_obj = gp.get_rl_fa_obj(num_dt_val)
-
     ls_price = gp.get_ls_price(
         num_dt=num_dt_val,
         num_paths=num_paths_val,
@@ -211,3 +252,28 @@ if __name__ == '__main__':
     )
     print(ls_price)
 
+    algorithm_val = TDAlgorithm.ExpectedSARSA
+    softmax_val = True
+    epsilon_val = 0.05
+    epsilon_half_life_val = 1000
+    lambd_val = 0.8
+    num_episodes_val = 10000
+    neurons_val = [3, 4]
+    learning_rate_val = 0.1
+    offline_val = False
+
+    rl_fa_obj = gp.get_tdl_obj(
+        num_dt=num_dt_val,
+        algorithm=algorithm_val,
+        softmax=softmax_val,
+        epsilon=epsilon_val,
+        epsilon_half_life=epsilon_half_life_val,
+        lambd=lambd_val,
+        num_episodes=num_episodes_val,
+        neurons=neurons_val,
+        learning_rate=learning_rate_val,
+        offline=offline_val
+    )
+    vf = rl_fa_obj.get_optimal_value_func()
+    rl_price = vf((0., spot_price_val))
+    print(rl_price)
