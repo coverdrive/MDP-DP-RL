@@ -229,35 +229,34 @@ if __name__ == '__main__':
     )
     dt_val = 0.1
     num_dt_val = int(expiry_val / dt_val)
-    num_paths_val = 10000
-    from numpy.polynomial.laguerre import lagval
-    num_laguerre = 10
-    ident = np.eye(num_laguerre)
-
-    # noinspection PyShadowingNames
-    def feature_func(
-        _: float,
-        x: np.ndarray,
-        i: int,
-        ident=ident
-    ) -> float:
-        # noinspection PyTypeChecker
-        return lagval(x[-1], ident[i])
-
-    ls_price = gp.get_ls_price(
-        num_dt=num_dt_val,
-        num_paths=num_paths_val,
-        feature_funcs=[(lambda t, x, i=i: feature_func(t, x, i)) for i in
-                       range(num_laguerre)]
-    )
-    print(ls_price)
+    num_paths_val = 1000
+    # from numpy.polynomial.laguerre import lagval
+    # num_laguerre = 10
+    # ident = np.eye(num_laguerre)
+    #
+    # # noinspection PyShadowingNames
+    # def feature_func(
+    #     _: float,
+    #     x: np.ndarray,
+    #     i: int,
+    #     ident=ident
+    # ) -> float:
+    #     # noinspection PyTypeChecker
+    #     return lagval(x[-1], ident[i])
+    #
+    # ls_price = gp.get_ls_price(
+    #     num_dt=num_dt_val,
+    #     num_paths=num_paths_val,
+    #     feature_funcs=[(lambda t, x, i=i: feature_func(t, x, i)) for i in
+    #                    range(num_laguerre)]
+    # )
+    # print(ls_price)
 
     algorithm_val = TDAlgorithm.ExpectedSARSA
     softmax_val = True
     epsilon_val = 0.05
-    epsilon_half_life_val = 1000
+    epsilon_half_life_val = 10000
     lambd_val = 0.8
-    num_episodes_val = 10000
     neurons_val = [3, 4]
     learning_rate_val = 0.1
     offline_val = False
@@ -269,11 +268,11 @@ if __name__ == '__main__':
         epsilon=epsilon_val,
         epsilon_half_life=epsilon_half_life_val,
         lambd=lambd_val,
-        num_episodes=num_episodes_val,
+        num_episodes=num_paths_val,
         neurons=neurons_val,
         learning_rate=learning_rate_val,
         offline=offline_val
     )
     vf = rl_fa_obj.get_optimal_value_func()
-    rl_price = vf((0., spot_price_val))
+    rl_price = vf((0., np.array([spot_price_val])))
     print(rl_price)
