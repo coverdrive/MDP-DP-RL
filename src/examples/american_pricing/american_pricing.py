@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Tuple, Set, Optional, Mapping
+from typing import Callable, Sequence, Tuple, Set, Optional, Mapping, Any
 import numpy as np
 from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_func_approx.tdlambda import TDLambda
@@ -109,7 +109,7 @@ class AmericanPricing:
         ind, price_arr = state
         t = ind * delta_t
         reward = (np.exp(-self.ir(t)) * self.payoff(t, price_arr)) if\
-            action else 0.
+            (action and ind <= num_dt) else 0.
         m, v = get_future_price_mean_var(
             price_arr[-1],
             t,
@@ -181,7 +181,7 @@ class AmericanPricing:
             epsilon_half_life=epsilon_half_life,
             lambd=lambd,
             num_episodes=num_episodes,
-            max_steps=num_dt + 1,
+            max_steps=num_dt + 2,
             fa_spec=FuncApproxSpec(
                 state_feature_funcs=[],
                 sa_feature_funcs=feature_funcs,
@@ -209,7 +209,8 @@ class AmericanPricing:
         sigma: float,
         num_dt: int,
         num_paths: int,
-        num_laguerre: int
+        num_laguerre: int,
+        params_bag: Mapping[str, Any]
     ) -> Mapping[str, float]:
         from numpy.polynomial.laguerre import lagval
         from examples.american_pricing.grid_pricing import GridPricing
@@ -265,15 +266,6 @@ class AmericanPricing:
         # )
         ls_price = 0.
 
-        algorithm_val = TDAlgorithm.ExpectedSARSA
-        softmax_val = True
-        epsilon_val = 0.05
-        epsilon_half_life_val = 1000
-        lambd_val = 0.8
-        neurons_val = None
-        learning_rate_val = 0.1
-        offline_val = False
-
         # noinspection PyShadowingNames
         def rl_feature_func(
             ind: int,
@@ -310,11 +302,11 @@ class AmericanPricing:
 
         rl_fa_obj = gp.get_tdl_obj(
             num_dt=num_dt,
-            algorithm=algorithm_val,
-            softmax=softmax_val,
-            epsilon=epsilon_val,
-            epsilon_half_life=epsilon_half_life_val,
-            lambd=lambd_val,
+            algorithm=params_bag["algorithm"],
+            softmax=params_bag["softmax"],
+            epsilon=params_bag["epsilon"],
+            epsilon_half_life=params_bag["epsilon_half_life"],
+            lambd=params_bag["lambda"],
             num_episodes=num_paths,
             feature_funcs=[(lambda x, i=i: rl_feature_func(
                 x[0][0],
@@ -322,12 +314,15 @@ class AmericanPricing:
                 x[1],
                 i
             )) for i in range(num_laguerre + 5)],
-            neurons=neurons_val,
-            learning_rate=learning_rate_val,
-            offline=offline_val
+            neurons=params_bag["neurons"],
+            learning_rate=params_bag["learning_rate"],
+            offline=params_bag["offline"]
         )
-        vf = rl_fa_obj.get_optimal_value_func()
-        rl_price = vf((0., np.array([spot_price])))
+        qvf = rl_fa_obj.get_qv_func_fa(None)
+        init_s = (0, np.array([spot_price]))
+        val_exec = qvf(init_s)(True)
+        val_cont = qvf(init_s)(False)
+        rl_price = max(val_exec, val_cont)
 
         return {
             "Grid": grid_price,
@@ -339,13 +334,24 @@ class AmericanPricing:
 if __name__ == '__main__':
     is_call_val = True
     spot_price_val = 80.0
-    strike_val = 80.2
+    strike_val = 82.3
     expiry_val = 2.0
-    r_val = 0.0
+    r_val = 0.02
     sigma_val = 0.25
     num_dt_val = 10
-    num_paths_val = 1000
+    num_paths_val = 100000
     num_laguerre_val = 3
+
+    params_bag_val = {
+        "algorithm": TDAlgorithm.ExpectedSARSA,
+        "softmax": True,
+        "epsilon": 0.1,
+        "epsilon_half_life": 10000,
+        "neurons": None,
+        "learning_rate": 0.1,
+        "lambda": 0.0,
+        "offline": False
+    }
 
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
     ebsp = EuropeanBSPricing(
@@ -367,6 +373,7 @@ if __name__ == '__main__':
         sigma=sigma_val,
         num_dt=num_dt_val,
         num_paths=num_paths_val,
-        num_laguerre=num_laguerre_val
+        num_laguerre=num_laguerre_val,
+        params_bag=params_bag_val
     )
     print(am_prices)
