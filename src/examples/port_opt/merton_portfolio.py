@@ -85,7 +85,7 @@ class MertonPortfolio(NamedTuple):
 
         return FuncApproxSpec(
             state_feature_funcs=[state_ff],
-            action_feature_funcs=[],
+            sa_feature_funcs=[lambda x, state_ff=state_ff: state_ff(x[0])],
             dnn_spec=DNNSpec(
                 neurons=[],
                 hidden_activation=DNNSpec.log_squish,
@@ -99,7 +99,7 @@ class MertonPortfolio(NamedTuple):
     def get_actor_nu_spec() -> FuncApproxSpec:
         return FuncApproxSpec(
             state_feature_funcs=[],
-            action_feature_funcs=[],
+            sa_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=[],
                 hidden_activation=DNNSpec.log_squish,
@@ -113,7 +113,7 @@ class MertonPortfolio(NamedTuple):
     def get_actor_mean_spec() -> FuncApproxSpec:
         return FuncApproxSpec(
             state_feature_funcs=[],
-            action_feature_funcs=[],
+            sa_feature_funcs=[],
             dnn_spec=None
         )
 
@@ -121,7 +121,7 @@ class MertonPortfolio(NamedTuple):
     def get_actor_variance_spec() -> FuncApproxSpec:
         return FuncApproxSpec(
             state_feature_funcs=[],
-            action_feature_funcs=[],
+            sa_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=[],
                 hidden_activation=DNNSpec.log_squish,
@@ -153,7 +153,7 @@ class MertonPortfolio(NamedTuple):
 
         return FuncApproxSpec(
             state_feature_funcs=[state_ff],
-            action_feature_funcs=[],
+            sa_feature_funcs=[lambda x, state_ff=state_ff: state_ff(x[0])],
             dnn_spec=None
         )
 

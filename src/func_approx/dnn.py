@@ -18,7 +18,8 @@ class DNN(FuncApproxBase):
         learning_rate: float = 0.1,
         adam: bool = True,
         adam_decay1: float = 0.9,
-        adam_decay2: float = 0.99
+        adam_decay2: float = 0.99,
+        add_unit_feature: bool = True
     ):
         self.neurons: Sequence[int] = dnn_obj.neurons
         self.hidden_activation: Callable[[np.ndarray], np.ndarray] \
@@ -35,14 +36,15 @@ class DNN(FuncApproxBase):
             learning_rate,
             adam,
             adam_decay1,
-            adam_decay2
+            adam_decay2,
+            add_unit_feature
         )
 
     def init_params(self) -> Sequence[np.ndarray]:
         """
         These are Xavier input parameters
         """
-        inp_size = self.num_features + 1
+        inp_size = self.num_features
         params = []
         for layer_neurons in self.neurons:
             mat = np.random.rand(layer_neurons, inp_size) / np.sqrt(inp_size)
@@ -225,7 +227,8 @@ if __name__ == '__main__':
         learning_rate=1.,
         adam=True,
         adam_decay1=0.9,
-        adam_decay2=0.999
+        adam_decay2=0.999,
+        add_unit_feature=True
     )
     init_eval = nn.get_func_eval((2.0, 3.0, -4.0))
     print(init_eval)

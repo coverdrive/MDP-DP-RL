@@ -214,13 +214,14 @@ if __name__ == '__main__':
     epsilon_val = 0.0
     epsilon_half_life_val = 30
     tol_val = 1e-4
+    state_ff = [
+        lambda s: 1. if s == 1 else 0.,
+        lambda s: 1. if s == 2 else 0.,
+        lambda s: 1. if s == 3 else 0.
+    ]
     fa_spec_val = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: 1. if s == 1 else 0.,
-            lambda s: 1. if s == 2 else 0.,
-            lambda s: 1. if s == 3 else 0.
-        ],
-        action_feature_funcs=[],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=[(lambda x, f=f: f(x[0])) for f in state_ff],
         dnn_spec=DNNSpec(
             neurons=[2, 4],
             hidden_activation=DNNSpec.relu,

@@ -185,8 +185,8 @@ class ADPPolicyGradient(OptBase):
                     disc_return_scores.append(
                         [return_val * mo.gamma ** i1 * x for x in sc_func(a, pp)]
                     )
-                    print(s)
-                    print(pp)
+                    # print(s)
+                    # print(pp)
 
                 pg_arr = np.vstack(disc_return_scores)
                 for i, pp_fa in enumerate(self.pol_fa):
@@ -197,10 +197,10 @@ class ADPPolicyGradient(OptBase):
                     for j in range(len(pol_grads[i])):
                         pol_grads[i][j] += this_pol_grad[j]
 
-            print("--------")
+            # print("--------")
             for i, pp_fa in enumerate(self.pol_fa):
                 gradient = [pg / self.num_state_samples for pg in pol_grads[i]]
-                print(gradient)
+                # print(gradient)
                 pp_fa.update_params_from_gradient(gradient)
 
         return self.get_policy_as_policy_type()
@@ -265,7 +265,7 @@ class ADPPolicyGradient(OptBase):
 
             for i, pp_fa in enumerate(self.pol_fa):
                 gradient = [pg / self.num_state_samples for pg in pol_grads[i]]
-                print(gradient)
+                # print(gradient)
                 pp_fa.update_params_from_gradient(gradient)
 
             # print(self.vf_fa.get_func_eval(1))
@@ -323,13 +323,14 @@ if __name__ == '__main__':
     max_steps_val = 100
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
+    state_ff = [
+        lambda s: 1. if s == 1 else 0.,
+        lambda s: 1. if s == 2 else 0.,
+        lambda s: 1. if s == 3 else 0.
+    ]
     vf_fa_spec_val = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: 1. if s == 1 else 0.,
-            lambda s: 1. if s == 2 else 0.,
-            lambda s: 1. if s == 3 else 0.
-        ],
-        action_feature_funcs=[],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=[(lambda x, f=f: f(x[0])) for f in state_ff],
         dnn_spec=DNNSpec(
             neurons=[2],
             hidden_activation=DNNSpec.relu,
@@ -339,12 +340,8 @@ if __name__ == '__main__':
         )
     )
     pol_fa_spec_val = [FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: 1. if s == 1 else 0.,
-            lambda s: 1. if s == 2 else 0.,
-            lambda s: 1. if s == 3 else 0.
-        ],
-        action_feature_funcs=[],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=[(lambda x, f=f: f(x[0])) for f in state_ff],
         dnn_spec=DNNSpec(
             neurons=[3],
             hidden_activation=DNNSpec.relu,

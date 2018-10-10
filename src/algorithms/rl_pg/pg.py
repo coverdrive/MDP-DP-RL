@@ -306,13 +306,14 @@ if __name__ == '__main__':
     actor_lambda_val = 0.95
     critic_lambda_val = 0.95
     learning_rate_val = 0.1
+    state_ff = [
+        lambda s: 1. if s == 1 else 0.,
+        lambda s: 1. if s == 2 else 0.,
+        lambda s: 1. if s == 3 else 0.
+    ]
     fa_spec_val = FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: 1. if s == 1 else 0.,
-            lambda s: 1. if s == 2 else 0.,
-            lambda s: 1. if s == 3 else 0.
-        ],
-        action_feature_funcs=[],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=[(lambda x, f=f: f(x[0])) for f in state_ff],
         dnn_spec=DNNSpec(
             neurons=[2],
             hidden_activation=DNNSpec.relu,
@@ -323,12 +324,8 @@ if __name__ == '__main__':
         learning_rate=learning_rate_val
     )
     pol_fa_spec_val = [FuncApproxSpec(
-        state_feature_funcs=[
-            lambda s: 1. if s == 1 else 0.,
-            lambda s: 1. if s == 2 else 0.,
-            lambda s: 1. if s == 3 else 0.
-        ],
-        action_feature_funcs=[],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=[(lambda x, f=f: f(x[0])) for f in state_ff],
         dnn_spec=DNNSpec(
             neurons=[2],
             hidden_activation=DNNSpec.relu,

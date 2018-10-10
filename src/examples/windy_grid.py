@@ -181,13 +181,14 @@ if __name__ == '__main__':
     this_num_episodes = 1000
     this_max_steps = 1000
     this_td_offline = True
+    state_ffs = FuncApproxBase.get_indicator_feature_funcs(mdp_ref_obj.all_states)
+    sa_ffs = [(lambda x, f=f: f(x[0])) for f in state_ffs] +\
+            [(lambda x, f=f: f(x[1])) for f in FuncApproxBase.get_indicator_feature_funcs(
+                {m.name for m in Move}
+            )]
     this_fa_spec = FuncApproxSpec(
-        state_feature_funcs=FuncApproxBase.get_indicator_feature_funcs(
-            mdp_ref_obj.all_states
-        ),
-        action_feature_funcs=FuncApproxBase.get_indicator_feature_funcs(
-            {m.name for m in Move}
-        ),
+        state_feature_funcs=state_ffs,
+        sa_feature_funcs=sa_ffs,
         dnn_spec=None
         # dnn_spec=DNNSpec(
         #     neurons=[2, 4],

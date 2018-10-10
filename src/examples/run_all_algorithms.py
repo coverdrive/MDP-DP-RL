@@ -196,7 +196,6 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_monte_carlo(self) -> mc_fa.MonteCarlo:
         return mc_fa.MonteCarlo(
             self.get_mdp_rep_for_rl_fa(),
-            self.first_visit_mc,
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
@@ -212,7 +211,6 @@ class RunAllAlgorithms(NamedTuple):
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
-            self.learning_rate,
             self.num_episodes,
             self.max_steps,
             self.fa_spec
@@ -225,7 +223,6 @@ class RunAllAlgorithms(NamedTuple):
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
-            self.learning_rate,
             self.num_episodes,
             self.max_steps,
             self.fa_spec
@@ -238,7 +235,6 @@ class RunAllAlgorithms(NamedTuple):
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
-            self.learning_rate,
             self.num_episodes,
             self.max_steps,
             self.fa_spec
@@ -251,7 +247,6 @@ class RunAllAlgorithms(NamedTuple):
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
-            self.learning_rate,
             self.lambd,
             self.num_episodes,
             self.max_steps,
@@ -266,7 +261,6 @@ class RunAllAlgorithms(NamedTuple):
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
-            self.learning_rate,
             self.lambd,
             self.num_episodes,
             self.max_steps,
@@ -281,7 +275,6 @@ class RunAllAlgorithms(NamedTuple):
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
-            self.learning_rate,
             self.lambd,
             self.num_episodes,
             self.max_steps,
@@ -320,11 +313,11 @@ if __name__ == '__main__':
     this_num_episodes = 3000
     this_max_steps = 1000
     this_tdl_fa_offline = True
+    state_ffs = FuncApproxBase.get_identity_feature_funcs(ic.lead_time + 1)
+    sa_ffs = [(lambda x, f=f: f(x[0])) for f in state_ffs] + [lambda x: x[1]]
     this_fa_spec = FuncApproxSpec(
-        state_feature_funcs=FuncApproxBase.get_identity_feature_funcs(
-            ic.lead_time + 1
-        ),
-        action_feature_funcs=[lambda x: x],
+        state_feature_funcs=state_ffs,
+        sa_feature_funcs=sa_ffs,
         dnn_spec=DNNSpec(
             neurons=[2, 4],
             hidden_activation=DNNSpec.relu,

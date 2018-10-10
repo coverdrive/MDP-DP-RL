@@ -8,11 +8,12 @@ from utils.generic_typevars import S, A
 
 class FuncApproxSpec(NamedTuple):
     state_feature_funcs: Sequence[Callable[[S], float]]
-    action_feature_funcs: Sequence[Callable[[A], float]]
+    sa_feature_funcs: Sequence[Callable[[Tuple[S, A]], float]]
     dnn_spec: Optional[DNNSpec]
     reglr_coeff: float = 0.
     learning_rate: float = 0.1
     adam_params: Tuple[bool, float, float] = (True, 0.9, 0.99)
+    add_unit_feature: bool = True
 
     def get_vf_func_approx_obj(self) -> FuncApproxBase:
         if self.dnn_spec is None:
@@ -22,7 +23,8 @@ class FuncApproxSpec(NamedTuple):
                 learning_rate=self.learning_rate,
                 adam=self.adam_params[0],
                 adam_decay1=self.adam_params[1],
-                adam_decay2=self.adam_params[2]
+                adam_decay2=self.adam_params[2],
+                add_unit_feature=self.add_unit_feature
             )
         else:
             ret = DNN(
@@ -32,34 +34,31 @@ class FuncApproxSpec(NamedTuple):
                 learning_rate=self.learning_rate,
                 adam=self.adam_params[0],
                 adam_decay1=self.adam_params[1],
-                adam_decay2=self.adam_params[2]
+                adam_decay2=self.adam_params[2],
+                add_unit_feature=self.add_unit_feature
             )
         return ret
 
-    def get_sa_feature_funcs(self) -> Sequence[Callable[[Tuple[S, A]], float]]:
-        sff = [lambda x, f=f: f(x[0]) for f in self.state_feature_funcs]
-        aff = [lambda x, g=g: g(x[1]) for g in self.action_feature_funcs]
-        return sff + aff
-
     def get_qvf_func_approx_obj(self) -> FuncApproxBase:
-        sa_feature_funcs = self.get_sa_feature_funcs()
         if self.dnn_spec is None:
             ret = LinearApprox(
-                feature_funcs=sa_feature_funcs,
+                feature_funcs=self.sa_feature_funcs,
                 reglr_coeff=self.reglr_coeff,
                 learning_rate=self.learning_rate,
                 adam=self.adam_params[0],
                 adam_decay1=self.adam_params[1],
-                adam_decay2=self.adam_params[2]
+                adam_decay2=self.adam_params[2],
+                add_unit_feature=self.add_unit_feature
             )
         else:
             ret = DNN(
-                feature_funcs=sa_feature_funcs,
+                feature_funcs=self.sa_feature_funcs,
                 dnn_obj=self.dnn_spec,
                 reglr_coeff=self.reglr_coeff,
                 learning_rate=self.learning_rate,
                 adam=self.adam_params[0],
                 adam_decay1=self.adam_params[1],
-                adam_decay2=self.adam_params[2]
+                adam_decay2=self.adam_params[2],
+                add_unit_feature=self.add_unit_feature
             )
         return ret

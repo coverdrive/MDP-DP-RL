@@ -161,11 +161,11 @@ if __name__ == '__main__':
     this_num_episodes = 3000
     this_max_steps = 1000
     this_tdl_fa_offline = True
+    state_ffs = FuncApproxBase.get_identity_feature_funcs(ic.lead_time + 1)
+    sa_ffs = [(lambda x, f=f: f(x[0])) for f in state_ffs] + [lambda x: x[1]]
     this_fa_spec = FuncApproxSpec(
-        state_feature_funcs=FuncApproxBase.get_identity_feature_funcs(
-            ic.lead_time + 1
-        ),
-        action_feature_funcs=[lambda x: x],
+        state_feature_funcs=state_ffs,
+        sa_feature_funcs=sa_ffs,
         dnn_spec=DNNSpec(
             neurons=[2, 4],
             hidden_activation=DNNSpec.relu,

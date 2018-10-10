@@ -17,7 +17,6 @@ class MonteCarlo(RLFuncApproxBase):
     def __init__(
         self,
         mdp_rep_for_rl: MDPRepForRLFA,
-        first_visit: bool,
         softmax: bool,
         epsilon: float,
         epsilon_half_life: float,
@@ -35,7 +34,6 @@ class MonteCarlo(RLFuncApproxBase):
             max_steps=max_steps,
             fa_spec=fa_spec
         )
-        self.first_visit: bool = first_visit
         self.nt_return_eval_steps = get_nt_return_eval_steps(
             max_steps,
             mdp_rep_for_rl.gamma,
@@ -47,22 +45,19 @@ class MonteCarlo(RLFuncApproxBase):
         polf: PolicyActDictType,
         start_state: S,
         start_action: Optional[A] = None
-    ) -> Sequence[Tuple[S, A, float, bool]]:
+    ) -> Sequence[Tuple[S, A, float]]:
 
         res = []
         state = start_state
         steps = 0
         terminate = False
-        occ_states = set()
 
         while not terminate:
-            first = state not in occ_states
-            occ_states.add(state)
             action = get_rv_gen_func_single(polf(state))()\
                 if (steps > 0 or start_action is None) else start_action
             next_state, reward =\
                 self.mdp_rep.state_reward_gen_func(state, action)
-            res.append((state, action, reward, first))
+            res.append((state, action, reward))
             steps += 1
             terminate = steps >= self.max_steps or\
                 self.mdp_rep.terminal_state_func(state)
@@ -80,7 +75,7 @@ class MonteCarlo(RLFuncApproxBase):
                 start_action=None
             )
 
-            rew_arr = np.array([x for _, _, x, _ in mc_path])
+            rew_arr = np.array([x for _, _, x in mc_path])
             if self.mdp_rep.terminal_state_func(mc_path[-1][0]):
                 returns = get_returns_from_rewards_terminating(
                     rew_arr,
@@ -93,8 +88,7 @@ class MonteCarlo(RLFuncApproxBase):
                     self.nt_return_eval_steps
                 )
 
-            sgd_pts = [(mc_path[i][0], r) for i, r in enumerate(returns)
-                       if not self.first_visit or mc_path[i][3]]
+            sgd_pts = [(mc_path[i][0], r) for i, r in enumerate(returns)]
             self.vf_fa.update_params(*zip(*sgd_pts))
 
             episodes += 1
@@ -114,7 +108,7 @@ class MonteCarlo(RLFuncApproxBase):
                 start_state,
                 start_action
             )
-            rew_arr = np.array([x for _, _, x, _ in mc_path])
+            rew_arr = np.array([x for _, _, x in mc_path])
             if self.mdp_rep.terminal_state_func(mc_path[-1][0]):
                 returns = get_returns_from_rewards_terminating(
                     rew_arr,
@@ -128,7 +122,7 @@ class MonteCarlo(RLFuncApproxBase):
                 )
 
             sgd_pts = [((mc_path[i][0], mc_path[i][1]), r) for i, r in
-                       enumerate(returns) if not self.first_visit or mc_path[i][3]]
+                       enumerate(returns)]
             # MC is offline update and so, policy improves after each episode
             self.qvf_fa.update_params(*zip(*sgd_pts))
 
@@ -165,24 +159,27 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
-    first_visit_flag = True
     softmax_flag = False
     episodes_limit = 10000
     epsilon_val = 0.1
     epsilon_half_life_val = 1000
+    learning_rate_val = 0.1
     max_steps_val = 1000
+    state_ff = [lambda s: float(s)]
+    sa_ff = [
+        lambda x: float(x[0]),
+        lambda x: 1. if x[1] == 'a' else 0.,
+        lambda x: 1. if x[1] == 'b' else 0.,
+        lambda x: 1. if x[1] == 'c' else 0.,
+    ]
     fa_spec_val = FuncApproxSpec(
-        state_feature_funcs=[lambda s: float(s)],
-        action_feature_funcs=[
-            lambda a: 1. if a == 'a' else 0.,
-            lambda a: 1. if a == 'b' else 0.,
-            lambda a: 1. if a == 'c' else 0.,
-        ],
-        dnn_spec=None
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=sa_ff,
+        dnn_spec=None,
+        learning_rate=learning_rate_val
     )
     mc_obj = MonteCarlo(
         mdp_rep_obj,
-        first_visit_flag,
         softmax_flag,
         epsilon_val,
         epsilon_half_life_val,

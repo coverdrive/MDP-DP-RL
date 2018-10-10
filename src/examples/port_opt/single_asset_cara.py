@@ -70,10 +70,8 @@ class SingleAssetCARA(NamedTuple):
             return term1 * term2 * term3
 
         return FuncApproxSpec(
-            state_feature_funcs=[
-                feature_func
-            ],
-            action_feature_funcs=[],
+            state_feature_funcs=[feature_func],
+            sa_feature_funcs=[lambda x, feature_func=feature_func: feature_func(x[0])],
             dnn_spec=DNNSpec(
                 neurons=neurons,
                 hidden_activation=DNNSpec.relu,
@@ -84,16 +82,15 @@ class SingleAssetCARA(NamedTuple):
         )
 
     def actor_spec(self) -> Tuple[FuncApproxSpec, FuncApproxSpec]:
+        ff = lambda s: (1. + self.r) ** float(s[0])
         mean = FuncApproxSpec(
-            state_feature_funcs=[
-                lambda s: (1. + self.r) ** float(s[0])
-            ],
-            action_feature_funcs=[],
+            state_feature_funcs=[ff],
+            sa_feature_funcs=[lambda x, ff=ff: ff(x[0])],
             dnn_spec=None
         )
         variance = FuncApproxSpec(
             state_feature_funcs=[],
-            action_feature_funcs=[],
+            sa_feature_funcs=[],
             dnn_spec=DNNSpec(
                 neurons=[],
                 hidden_activation=DNNSpec.log_squish,

@@ -97,8 +97,9 @@ def plot_fitted_call_prices(
 
     num_laguerre = 10
     ident = np.eye(num_laguerre)
-    spot_features = np.array([[lagval(s, ident[i]) for i in
-                               range(num_laguerre)] for s in spot_prices])
+    spot_features = np.array([[1.] + [np.exp(-s / (strike * 2)) *
+                                      lagval(s / strike, ident[i]) for i in
+                                      range(num_laguerre)] for s in spot_prices])
     lp = np.linalg.lstsq(
         spot_features,
         np.array(option_prices),
@@ -107,7 +108,7 @@ def plot_fitted_call_prices(
     pred2_option_prices = spot_features.dot(lp)
 
     plt.plot(spot_prices, option_prices, 'r')
-    plt.plot(spot_prices, pred1_option_prices, 'b')
+    # plt.plot(spot_prices, pred1_option_prices, 'b')
     plt.plot(spot_prices, pred2_option_prices, 'g')
     plt.show()
 

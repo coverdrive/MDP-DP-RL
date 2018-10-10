@@ -16,7 +16,8 @@ class LinearApprox(FuncApproxBase):
         learning_rate: float = 0.1,
         adam: bool = True,
         adam_decay1: float = 0.9,
-        adam_decay2: float = 0.99
+        adam_decay2: float = 0.99,
+        add_unit_feature: bool = True
     ):
         super().__init__(
             feature_funcs,
@@ -24,16 +25,17 @@ class LinearApprox(FuncApproxBase):
             learning_rate,
             adam,
             adam_decay1,
-            adam_decay2
+            adam_decay2,
+            add_unit_feature
         )
 
     def init_params(self) -> Sequence[np.ndarray]:
-        return [np.zeros(self.num_features + 1)]
+        return [np.zeros(self.num_features)]
 
     def init_adam_caches(self)\
             -> Tuple[Sequence[np.ndarray], Sequence[np.ndarray]]:
-        return [np.zeros(self.num_features + 1)],\
-               [np.zeros(self.num_features + 1)]
+        return [np.zeros(self.num_features)],\
+               [np.zeros(self.num_features)]
 
     def get_func_eval(self, x_vals: X):
         """
@@ -97,7 +99,8 @@ if __name__ == '__main__':
         learning_rate=0.1,
         adam=True,
         adam_decay1=0.9,
-        adam_decay2=0.999
+        adam_decay2=0.999,
+        add_unit_feature=True
     )
     alpha = 2.0
     beta_1 = 10.0

@@ -24,14 +24,12 @@ class GridPricing:
         payoff: Callable[[float, float], float],
         expiry: float,
         dispersion: Callable[[float, float], float],
-        r: Callable[[float], float],
         ir: Callable[[float], float]
     ) -> None:
         self.spot_price: float = spot_price
         self.payoff: Callable[[float, float], float] = payoff
         self.expiry: float = expiry
         self.dispersion: Callable[[float, float], float] = dispersion
-        self.r: Callable[[float], float] = r
         self.ir: Callable[[float], float] = ir
 
     def get_price(
@@ -93,8 +91,6 @@ if __name__ == '__main__':
     # noinspection PyShadowingNames
     dispersion_func = lambda t, x, sigma_val=sigma_val: sigma_val * x
     # noinspection PyShadowingNames
-    r_func = lambda t, rr=rr: rr
-    # noinspection PyShadowingNames
     ir_func = lambda t, rr=rr: rr * t
 
     gp = GridPricing(
@@ -102,7 +98,6 @@ if __name__ == '__main__':
         payoff=payoff_func,
         expiry=expiry_val,
         dispersion=dispersion_func,
-        r=r_func,
         ir=ir_func
     )
     dt_val = 0.1

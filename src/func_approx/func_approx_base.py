@@ -15,9 +15,11 @@ class FuncApproxBase(ABC):
         learning_rate: float,
         adam: bool,
         adam_decay1: float,
-        adam_decay2: float
+        adam_decay2: float,
+        add_unit_feature: bool = True
     ):
-        self.feature_funcs: Sequence[Callable[[X], float]] = feature_funcs
+        self.feature_funcs: Sequence[Callable[[X], float]] =\
+            ([lambda _: 1.] if add_unit_feature else []) + feature_funcs
         self.num_features = len(self.feature_funcs)
         self.reglr_coeff = reglr_coeff
         self.learning_rate = learning_rate
@@ -29,16 +31,16 @@ class FuncApproxBase(ABC):
             = self.init_adam_caches()
 
     @staticmethod
-    def get_identity_feature_funcs(n: int) -> Sequence[Callable[[X], float]]:
+    def get_identity_feature_funcs(n: int) -> List[Callable[[X], float]]:
         return [(lambda x, i=i: x[i]) for i in range(n)]
 
     @staticmethod
     def get_indicator_feature_funcs(values: Set[X])\
-            -> Sequence[Callable[[X], float]]:
+            -> List[Callable[[X], float]]:
         return [(lambda x, v=v: 1. if x == v else 0.) for v in values]
 
     def get_feature_vals(self, x_vals: X) -> np.ndarray:
-        return np.array([1.] + [f(x_vals) for f in self.feature_funcs])
+        return np.array([f(x_vals) for f in self.feature_funcs])
 
     def get_feature_vals_pts(self, x_vals_seq: Sequence[X]) -> np.ndarray:
         return np.vstack(self.get_feature_vals(x) for x in x_vals_seq)

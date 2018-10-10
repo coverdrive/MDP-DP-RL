@@ -330,7 +330,7 @@ if __name__ == '__main__':
 
     actor_mu = FuncApproxSpec(
         state_feature_funcs=[],
-        action_feature_funcs=[],
+        sa_feature_funcs=[],
         dnn_spec=DNNSpec(
             neurons=[],
             hidden_activation=DNNSpec.log_squish,
@@ -341,7 +341,7 @@ if __name__ == '__main__':
     )
     actor_nu = FuncApproxSpec(
         state_feature_funcs=[],
-        action_feature_funcs=[],
+        sa_feature_funcs=[],
         dnn_spec=DNNSpec(
             neurons=[],
             hidden_activation=DNNSpec.log_squish,
@@ -352,12 +352,12 @@ if __name__ == '__main__':
     )
     actor_mean = FuncApproxSpec(
         state_feature_funcs=[],
-        action_feature_funcs=[],
+        sa_feature_funcs=[],
         dnn_spec=None
     )
     actor_variance = FuncApproxSpec(
         state_feature_funcs=[],
-        action_feature_funcs=[],
+        sa_feature_funcs=[],
         dnn_spec=DNNSpec(
             neurons=[],
             hidden_activation=DNNSpec.log_squish,
@@ -368,7 +368,7 @@ if __name__ == '__main__':
     )
     critic = FuncApproxSpec(
         state_feature_funcs=[],
-        action_feature_funcs=[],
+        sa_feature_funcs=[],
         dnn_spec=None
     )
 

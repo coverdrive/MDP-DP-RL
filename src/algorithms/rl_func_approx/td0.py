@@ -139,13 +139,16 @@ if __name__ == '__main__':
     learning_rate_val = 0.1
     episodes_limit = 10000
     max_steps_val = 1000
+    state_ff = [lambda s: float(s)]
+    sa_ff = [
+        lambda x: float(x[0]),
+        lambda x: 1. if x[1] == 'a' else 0.,
+        lambda x: 1. if x[1] == 'b' else 0.,
+        lambda x: 1. if x[1] == 'c' else 0.,
+    ]
     fa_spec_val = FuncApproxSpec(
-        state_feature_funcs=[lambda s: float(s)],
-        action_feature_funcs=[
-            lambda a: 1. if a == 'a' else 0.,
-            lambda a: 1. if a == 'b' else 0.,
-            lambda a: 1. if a == 'c' else 0.,
-        ],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=sa_ff,
         dnn_spec=None,
         learning_rate=learning_rate_val
     )

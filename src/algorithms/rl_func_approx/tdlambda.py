@@ -124,6 +124,7 @@ class TDLambda(RLFuncApproxBase):
 
                 target = reward + self.mdp_rep.gamma * next_qv
                 delta = target - self.qvf_fa.get_func_eval((state, action))
+
                 if self.offline:
                     states_actions.append((state, action))
                     targets.append(target)
@@ -147,6 +148,7 @@ class TDLambda(RLFuncApproxBase):
                 steps += 1
                 terminate = steps >= self.max_steps or \
                     self.mdp_rep.terminal_state_func(state)
+
                 state = next_state
                 action = next_action
 
@@ -193,13 +195,16 @@ if __name__ == '__main__':
     episodes_limit = 10000
     max_steps_val = 1000
     offline_val = True
+    state_ff = [lambda s: float(s)]
+    sa_ff = [
+        lambda x: float(x[0]),
+        lambda x: 1. if x[1] == 'a' else 0.,
+        lambda x: 1. if x[1] == 'b' else 0.,
+        lambda x: 1. if x[1] == 'c' else 0.,
+    ]
     fa_spec_val = FuncApproxSpec(
-        state_feature_funcs=[lambda s: float(s)],
-        action_feature_funcs=[
-            lambda a: 1. if a == 'a' else 0.,
-            lambda a: 1. if a == 'b' else 0.,
-            lambda a: 1. if a == 'c' else 0.,
-        ],
+        state_feature_funcs=state_ff,
+        sa_feature_funcs=sa_ff,
         dnn_spec=None,
         learning_rate=learning_rate_val
     )

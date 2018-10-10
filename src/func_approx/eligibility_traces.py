@@ -15,13 +15,13 @@ def get_decay_toeplitz_matrix(
 
 # noinspection PyPep8Naming
 def get_generalized_back_prop(
-        dnn_params: Sequence[np.ndarray],
-        fwd_prop: Sequence[np.ndarray],
-        dObj_dOL: np.ndarray,
-        factors: np.ndarray,
-        decay_param: float,
-        hidden_activation_deriv: Callable[[np.ndarray], np.ndarray],
-        output_activation_deriv: Callable[[np.ndarray], np.ndarray]
+    dnn_params: Sequence[np.ndarray],
+    fwd_prop: Sequence[np.ndarray],
+    dObj_dOL: np.ndarray,
+    factors: np.ndarray,
+    decay_param: float,
+    hidden_activation_deriv: Callable[[np.ndarray], np.ndarray],
+    output_activation_deriv: Callable[[np.ndarray], np.ndarray]
 ) -> Sequence[np.ndarray]:
     """
     :param dnn_params: list (of length L+1) of (|O_L| x |I_L| + 1) 2-D array
