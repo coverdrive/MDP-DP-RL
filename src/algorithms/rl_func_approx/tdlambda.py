@@ -69,7 +69,7 @@ class TDLambda(RLFuncApproxBase):
                           )
                           )]
                     self.vf_fa.update_params_from_gradient(
-                        [e * delta for e in et]
+                        [-e * delta for e in et]
                     )
                 steps += 1
                 terminate = steps >= self.max_steps or\
@@ -97,6 +97,10 @@ class TDLambda(RLFuncApproxBase):
         while episodes < self.num_episodes:
             et = [np.zeros_like(p) for p in self.qvf_fa.params]
             state, action = self.mdp_rep.init_state_action_gen()
+
+            print((episodes, max(self.qvf_fa.get_func_eval((state, a)) for a in
+                      self.mdp_rep.state_action_func(state))))
+
             steps = 0
             terminate = False
 
@@ -136,7 +140,7 @@ class TDLambda(RLFuncApproxBase):
                           )
                           )]
                     self.qvf_fa.update_params_from_gradient(
-                        [e * delta for e in et]
+                        [-e * delta for e in et]
                     )
                 if control:
                     this_polf = get_soft_policy_func_from_qf(

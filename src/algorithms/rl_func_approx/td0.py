@@ -67,6 +67,10 @@ class TD0(RLFuncApproxBase):
 
         while episodes < self.num_episodes:
             state, action = self.mdp_rep.init_state_action_gen()
+
+            print((episodes, max(self.qvf_fa.get_func_eval((state, a)) for a in
+                      self.mdp_rep.state_action_func(state))))
+
             steps = 0
             terminate = False
 
@@ -107,6 +111,7 @@ class TD0(RLFuncApproxBase):
                 action = next_action
 
             episodes += 1
+
 
         return lambda st: lambda act, st=st: self.qvf_fa.get_func_eval((st, act))
 
