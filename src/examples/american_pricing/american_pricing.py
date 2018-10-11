@@ -1,6 +1,9 @@
 from typing import Callable, Sequence, Tuple, Set, Optional, Mapping, Any
 import numpy as np
 from algorithms.td_algo_enum import TDAlgorithm
+from algorithms.rl_func_approx.monte_carlo import MonteCarlo
+from algorithms.rl_func_approx.td0 import TD0
+from algorithms.rl_func_approx.rl_func_approx_base import RLFuncApproxBase
 from algorithms.rl_func_approx.tdlambda import TDLambda
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
@@ -125,6 +128,7 @@ class AmericanPricing:
     def get_tdl_obj(
         self,
         num_dt: int,
+        method: str,
         algorithm: TDAlgorithm,
         softmax: bool,
         epsilon: float,
@@ -134,8 +138,9 @@ class AmericanPricing:
         feature_funcs: Sequence[Callable[[Tuple[StateType, ActionType]], float]],
         neurons: Optional[Sequence[int]],
         learning_rate: float,
+        adam: Tuple[bool, float, float],
         offline: bool
-    ) -> TDLambda:
+    ) -> RLFuncApproxBase:
         dt = self.expiry / num_dt
 
         def sa_func(_: StateType) -> Set[ActionType]:
@@ -173,30 +178,57 @@ class AmericanPricing:
             init_state_action_gen=init_sa
         )
 
-        return TDLambda(
-            mdp_rep_for_rl=mdp_rep_obj,
-            algorithm=algorithm,
-            softmax=softmax,
-            epsilon=epsilon,
-            epsilon_half_life=epsilon_half_life,
-            lambd=lambd,
-            num_episodes=num_episodes,
-            max_steps=num_dt + 2,
-            fa_spec=FuncApproxSpec(
-                state_feature_funcs=[],
-                sa_feature_funcs=feature_funcs,
-                dnn_spec=(None if neurons is None else (DNNSpec(
-                    neurons=neurons,
-                    hidden_activation=DNNSpec.log_squish,
-                    hidden_activation_deriv=DNNSpec.log_squish_deriv,
-                    output_activation=DNNSpec.pos_log_squish,
-                    output_activation_deriv=DNNSpec.pos_log_squish_deriv
-                ))),
-                learning_rate=learning_rate,
-                add_unit_feature=False
-            ),
-            offline=offline
+        fa_spec = FuncApproxSpec(
+            state_feature_funcs=[],
+            sa_feature_funcs=feature_funcs,
+            dnn_spec=(None if neurons is None else (DNNSpec(
+                neurons=neurons,
+                hidden_activation=DNNSpec.log_squish,
+                hidden_activation_deriv=DNNSpec.log_squish_deriv,
+                output_activation=DNNSpec.pos_log_squish,
+                output_activation_deriv=DNNSpec.pos_log_squish_deriv
+            ))),
+            learning_rate=learning_rate,
+            adam_params=adam,
+            add_unit_feature=False
         )
+
+        if method == "MC":
+            ret = MonteCarlo(
+                mdp_rep_for_rl=mdp_rep_obj,
+                softmax=softmax,
+                epsilon=epsilon,
+                epsilon_half_life=epsilon_half_life,
+                num_episodes=num_episodes,
+                max_steps=num_dt + 2,
+                fa_spec=fa_spec
+            )
+        elif method == "TD0":
+            ret = TD0(
+                mdp_rep_for_rl=mdp_rep_obj,
+                algorithm=algorithm,
+                softmax=softmax,
+                epsilon=epsilon,
+                epsilon_half_life=epsilon_half_life,
+                num_episodes=num_episodes,
+                max_steps=num_dt + 2,
+                fa_spec=fa_spec
+            )
+        else:
+            ret = TDLambda(
+                mdp_rep_for_rl=mdp_rep_obj,
+                algorithm=algorithm,
+                softmax=softmax,
+                epsilon=epsilon,
+                epsilon_half_life=epsilon_half_life,
+                lambd=lambd,
+                num_episodes=num_episodes,
+                max_steps=num_dt + 2,
+                fa_spec=fa_spec,
+                offline=offline
+            )
+
+        return ret
 
     # noinspection PyShadowingNames
     @staticmethod
@@ -302,6 +334,7 @@ class AmericanPricing:
 
         rl_fa_obj = gp.get_tdl_obj(
             num_dt=num_dt,
+            method=params_bag["method"],
             algorithm=params_bag["algorithm"],
             softmax=params_bag["softmax"],
             epsilon=params_bag["epsilon"],
@@ -316,6 +349,7 @@ class AmericanPricing:
             )) for i in range(num_laguerre + 5)],
             neurons=params_bag["neurons"],
             learning_rate=params_bag["learning_rate"],
+            adam=params_bag["adam"],
             offline=params_bag["offline"]
         )
         qvf = rl_fa_obj.get_qv_func_fa(None)
@@ -343,12 +377,14 @@ if __name__ == '__main__':
     num_laguerre_val = 3
 
     params_bag_val = {
-        "algorithm": TDAlgorithm.ExpectedSARSA,
-        "softmax": True,
+        "method": "MC",
+        "algorithm": TDAlgorithm.QLearning,
+        "softmax": False,
         "epsilon": 0.1,
         "epsilon_half_life": 10000,
         "neurons": None,
         "learning_rate": 0.1,
+        "adam": (True, 0.9, 0.99),
         "lambda": 0.0,
         "offline": False
     }
