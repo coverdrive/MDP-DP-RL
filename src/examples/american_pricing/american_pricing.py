@@ -252,22 +252,21 @@ class AmericanPricing:
         # noinspection PyShadowingNames
         ir_func = lambda t, r=r: r * t
 
-        # x_lim = 4. * sigma * spot_price * np.sqrt(expiry)
-        # num_dx = 200
-        # dx = x_lim / num_dx
-        #
-        # grid_price = GridPricing(
-        #     spot_price=spot_price,
-        #     payoff=payoff,
-        #     expiry=expiry,
-        #     dispersion=dispersion,
-        #     ir=ir_func
-        # ).get_price(
-        #     num_dt=num_dt,
-        #     dx=dx,
-        #     num_dx=num_dx
-        # )
-        grid_price = 0.
+        x_lim = 4. * sigma * spot_price * np.sqrt(expiry)
+        num_dx = 200
+        dx = x_lim / num_dx
+
+        grid_price = GridPricing(
+            spot_price=spot_price,
+            payoff=payoff,
+            expiry=expiry,
+            dispersion=dispersion,
+            ir=ir_func
+        ).get_price(
+            num_dt=num_dt,
+            dx=dx,
+            num_dx=num_dx
+        )
 
         gp = AmericanPricing(
             spot_price=spot_price,
@@ -289,14 +288,13 @@ class AmericanPricing:
             return np.exp(-x / (strike * 2)) * \
                    lagval(x / strike, ident[i])
 
-        # ls_price = gp.get_ls_price(
-        #     num_dt=num_dt,
-        #     num_paths=num_paths,
-        #     feature_funcs=[lambda _, x: 1.] +
-        #                   [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
-        #                    range(num_laguerre)]
-        # )
-        ls_price = 0.
+        ls_price = gp.get_ls_price(
+            num_dt=num_dt,
+            num_paths=num_paths,
+            feature_funcs=[lambda _, x: 1.] +
+                          [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
+                           range(num_laguerre)]
+        )
 
         # noinspection PyShadowingNames
         def rl_feature_func(
@@ -366,39 +364,28 @@ class AmericanPricing:
 
 
 if __name__ == '__main__':
-    is_call_val = True
+    is_call_val = False
     spot_price_val = 80.0
-    strike_val = 82.3
+    strike_val = 78.0
     expiry_val = 2.0
     r_val = 0.02
     sigma_val = 0.25
     num_dt_val = 10
-    num_paths_val = 100000
+    num_paths_val = 1000000
     num_laguerre_val = 3
 
     params_bag_val = {
-        "method": "MC",
+        "method": "TDL",
         "algorithm": TDAlgorithm.QLearning,
         "softmax": False,
-        "epsilon": 0.1,
-        "epsilon_half_life": 10000,
+        "epsilon": 0.3,
+        "epsilon_half_life": 100000,
         "neurons": None,
-        "learning_rate": 0.1,
+        "learning_rate": 0.03,
         "adam": (True, 0.9, 0.99),
-        "lambda": 0.0,
-        "offline": False
+        "lambda": 0.8,
+        "offline": True
     }
-
-    from examples.american_pricing.bs_pricing import EuropeanBSPricing
-    ebsp = EuropeanBSPricing(
-        is_call=True,
-        spot_price=spot_price_val,
-        strike=strike_val,
-        expiry=expiry_val,
-        r=r_val,
-        sigma=sigma_val
-    )
-    print(ebsp.option_price)
 
     am_prices = AmericanPricing.get_vanilla_american_price(
         is_call=is_call_val,
@@ -413,3 +400,15 @@ if __name__ == '__main__':
         params_bag=params_bag_val
     )
     print(am_prices)
+    print(params_bag_val)
+    from examples.american_pricing.bs_pricing import EuropeanBSPricing
+
+    ebsp = EuropeanBSPricing(
+        is_call=True,
+        spot_price=spot_price_val,
+        strike=strike_val,
+        expiry=expiry_val,
+        r=r_val,
+        sigma=sigma_val
+    )
+    print(ebsp.option_price)
