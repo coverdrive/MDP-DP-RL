@@ -104,8 +104,8 @@ class MonteCarlo(RLFuncApproxBase):
         while episodes < self.num_episodes:
             start_state, start_action = self.mdp_rep.init_state_action_gen()
 
-            print((episodes, max(self.qvf_fa.get_func_eval((start_state, a)) for a in
-                      self.mdp_rep.state_action_func(start_state))))
+            # print((episodes, max(self.qvf_fa.get_func_eval((start_state, a)) for a in
+            #           self.mdp_rep.state_action_func(start_state))))
 
             mc_path = self.get_mc_path(
                 this_polf,

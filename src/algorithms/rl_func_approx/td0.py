@@ -68,8 +68,8 @@ class TD0(RLFuncApproxBase):
         while episodes < self.num_episodes:
             state, action = self.mdp_rep.init_state_action_gen()
 
-            print((episodes, max(self.qvf_fa.get_func_eval((state, a)) for a in
-                      self.mdp_rep.state_action_func(state))))
+            # print((episodes, max(self.qvf_fa.get_func_eval((state, a)) for a in
+            #           self.mdp_rep.state_action_func(state))))
 
             steps = 0
             terminate = False
