@@ -125,7 +125,7 @@ class AmericanPricing:
         next_ind = (num_dt if action else ind) + 1
         return (next_ind, price1), reward
 
-    def get_tdl_obj(
+    def get_rl_fa_obj(
         self,
         num_dt: int,
         method: str,
@@ -330,7 +330,7 @@ class AmericanPricing:
 
             return ret
 
-        rl_fa_obj = gp.get_tdl_obj(
+        rl_fa_obj = gp.get_rl_fa_obj(
             num_dt=num_dt,
             method=params_bag["method"],
             algorithm=params_bag["algorithm"],
@@ -366,7 +366,7 @@ class AmericanPricing:
 if __name__ == '__main__':
     is_call_val = False
     spot_price_val = 80.0
-    strike_val = 78.0
+    strike_val = 75.0
     expiry_val = 2.0
     r_val = 0.02
     sigma_val = 0.25
@@ -375,16 +375,16 @@ if __name__ == '__main__':
     num_laguerre_val = 3
 
     params_bag_val = {
-        "method": "TDL",
-        "algorithm": TDAlgorithm.QLearning,
+        "method": "TD0",
+        "algorithm": TDAlgorithm.ExpectedSARSA,
         "softmax": False,
-        "epsilon": 0.3,
+        "epsilon": 0.2,
         "epsilon_half_life": 100000,
         "neurons": None,
-        "learning_rate": 0.03,
+        "learning_rate": 0.05,
         "adam": (True, 0.9, 0.99),
-        "lambda": 0.8,
-        "offline": True
+        "lambda": 0.0,
+        "offline": False
     }
 
     am_prices = AmericanPricing.get_vanilla_american_price(
@@ -404,7 +404,7 @@ if __name__ == '__main__':
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
 
     ebsp = EuropeanBSPricing(
-        is_call=True,
+        is_call=is_call_val,
         spot_price=spot_price_val,
         strike=strike_val,
         expiry=expiry_val,

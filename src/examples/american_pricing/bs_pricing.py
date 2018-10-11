@@ -69,11 +69,11 @@ class EuropeanBSPricing:
 
 
 if __name__ == "__main__":
-    is_call_val = True
+    is_call_val = False
     spot_price_val = 80.0
-    strike_val = 80.2
+    strike_val = 78.0
     expiry_val = 2.0
-    r_val = 0.0
+    r_val = 0.02
     sigma_val = 0.25
     opt_obj = EuropeanBSPricing(
         is_call=is_call_val,
