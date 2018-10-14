@@ -55,6 +55,7 @@ class RLFuncApproxBase(OptBase):
 
         return vf
 
+    # noinspection PyShadowingNames
     def get_value_func(self, pol_func: PolicyType) -> VFType:
         return self.get_value_func_fa(
             lambda s, pol_func=pol_func: get_pdf_from_samples(
@@ -67,6 +68,7 @@ class RLFuncApproxBase(OptBase):
     def get_qv_func_fa(self, polf: Optional[PolicyActDictType]) -> QFType:
         pass
 
+    # noinspection PyShadowingNames
     def get_act_value_func(self, pol_func: PolicyType) -> QFType:
         return self.get_qv_func_fa(
             lambda s, pol_func=pol_func: get_pdf_from_samples(

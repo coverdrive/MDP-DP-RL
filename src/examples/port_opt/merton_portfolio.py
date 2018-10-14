@@ -71,6 +71,7 @@ class MertonPortfolio(NamedTuple):
             discount_rate=self.rho * delta_t
         )
 
+    # noinspection PyShadowingNames
     def get_actor_mu_spec(self, time_steps: int) -> FuncApproxSpec:
         tnu = self.get_nu()
 
@@ -131,7 +132,7 @@ class MertonPortfolio(NamedTuple):
             )
         )
 
-    # noinspection PyMethodMayBeStatic
+    # noinspection PyMethodMayBeStatic,PyShadowingNames
     def get_critic_spec(self, time_steps: int) -> FuncApproxSpec:
         tnu = self.get_nu()
         gam = 1. - self.gamma

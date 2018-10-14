@@ -108,7 +108,7 @@ def plot_fitted_call_prices(
     pred2_option_prices = spot_features.dot(lp)
 
     plt.plot(spot_prices, option_prices, 'r')
-    # plt.plot(spot_prices, pred1_option_prices, 'b')
+    plt.plot(spot_prices, pred1_option_prices, 'b')
     plt.plot(spot_prices, pred2_option_prices, 'g')
     plt.show()
 

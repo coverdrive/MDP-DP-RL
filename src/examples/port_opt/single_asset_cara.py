@@ -57,7 +57,7 @@ class SingleAssetCARA(NamedTuple):
     def init_state() -> StateType:
         return 0, 1.
 
-    # noinspection PyMethodMayBeStatic
+    # noinspection PyMethodMayBeStatic,PyShadowingNames
     def critic_spec(self, neurons: Sequence[int]) -> FuncApproxSpec:
 
         def feature_func(state: StateType) -> float:
@@ -81,6 +81,7 @@ class SingleAssetCARA(NamedTuple):
             )
         )
 
+    # noinspection PyShadowingNames
     def actor_spec(self) -> Tuple[FuncApproxSpec, FuncApproxSpec]:
         ff = lambda s: (1. + self.r) ** float(s[0])
         mean = FuncApproxSpec(

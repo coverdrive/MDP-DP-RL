@@ -252,7 +252,7 @@ class AmericanPricing:
                 price_seq = np.append(price_seq, path[steps])
                 state = (steps, price_seq)
                 exercise_price = np.exp(-self.ir(dt * steps)) *\
-                                 self.payoff(dt * steps, price_seq)
+                    self.payoff(dt * steps, price_seq)
                 continue_price = qvf(state)(False)
                 steps += 1
                 if exercise_price > continue_price:
