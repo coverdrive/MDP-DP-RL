@@ -17,6 +17,7 @@ class MonteCarlo(RLFuncApproxBase):
     def __init__(
         self,
         mdp_rep_for_rl: MDPRepForRLFA,
+        exploring_start: bool,
         softmax: bool,
         epsilon: float,
         epsilon_half_life: float,
@@ -27,6 +28,7 @@ class MonteCarlo(RLFuncApproxBase):
 
         super().__init__(
             mdp_rep_for_rl=mdp_rep_for_rl,
+            exploring_start=exploring_start,
             softmax=softmax,
             epsilon=epsilon,
             epsilon_half_life=epsilon_half_life,
@@ -102,10 +104,15 @@ class MonteCarlo(RLFuncApproxBase):
         episodes = 0
 
         while episodes < self.num_episodes:
-            start_state, start_action = self.mdp_rep.init_state_action_gen()
+            if self.exploring_start:
+                start_state, start_action = self.mdp_rep.init_state_action_gen()
+            else:
+                start_state = self.mdp_rep.init_state_gen()
+                start_action = None
 
             # print((episodes, max(self.qvf_fa.get_func_eval((start_state, a)) for a in
-            #           self.mdp_rep.state_action_func(start_state))))
+            #        self.mdp_rep.state_action_func(start_state))))
+            # print(self.qvf_fa.params)
 
             mc_path = self.get_mc_path(
                 this_polf,
@@ -163,6 +170,7 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
+    exploring_start_val = False
     softmax_flag = False
     episodes_limit = 10000
     epsilon_val = 0.1
@@ -184,6 +192,7 @@ if __name__ == '__main__':
     )
     mc_obj = MonteCarlo(
         mdp_rep_obj,
+        exploring_start_val,
         softmax_flag,
         epsilon_val,
         epsilon_half_life_val,

@@ -30,6 +30,7 @@ class RunAllAlgorithms(NamedTuple):
 
     mdp_refined: MDPRefined
     tolerance: float
+    exploring_start: bool
     first_visit_mc: bool
     num_samples: int
     softmax: bool
@@ -104,6 +105,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_monte_carlo(self) -> mc_tabular.MonteCarlo:
         return mc_tabular.MonteCarlo(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             self.first_visit_mc,
             self.softmax,
             self.epsilon,
@@ -115,6 +117,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_sarsa(self) -> td0_tabular.TD0:
         return td0_tabular.TD0(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
@@ -128,6 +131,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_qlearning(self) -> td0_tabular.TD0:
         return td0_tabular.TD0(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
@@ -141,6 +145,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_expected_sarsa(self) -> td0_tabular.TD0:
         return td0_tabular.TD0(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
@@ -154,6 +159,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_sarsa_lambda(self) -> tdl_tabular.TDLambda:
         return tdl_tabular.TDLambda(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
@@ -168,6 +174,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_qlearning_lambda(self) -> tdl_tabular.TDLambda:
         return tdl_tabular.TDLambda(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
@@ -182,6 +189,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_tabular_expected_sarsa_lambda(self) -> tdl_tabular.TDLambda:
         return tdl_tabular.TDLambda(
             self.get_mdp_rep_for_rl_tabular(),
+            self.exploring_start,
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
@@ -196,6 +204,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_monte_carlo(self) -> mc_fa.MonteCarlo:
         return mc_fa.MonteCarlo(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             self.softmax,
             self.epsilon,
             self.epsilon_half_life,
@@ -207,6 +216,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_sarsa(self) -> td0_fa.TD0:
         return td0_fa.TD0(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
@@ -219,6 +229,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_qlearning(self) -> td0_fa.TD0:
         return td0_fa.TD0(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
@@ -231,6 +242,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_expected_sarsa(self) -> td0_fa.TD0:
         return td0_fa.TD0(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
@@ -243,6 +255,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_sarsa_lambda(self) -> tdl_fa.TDLambda:
         return tdl_fa.TDLambda(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             TDAlgorithm.SARSA,
             self.softmax,
             self.epsilon,
@@ -257,6 +270,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_qlearning_lambda(self) -> tdl_fa.TDLambda:
         return tdl_fa.TDLambda(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             TDAlgorithm.QLearning,
             self.softmax,
             self.epsilon,
@@ -271,6 +285,7 @@ class RunAllAlgorithms(NamedTuple):
     def get_fa_expected_sarsa_lambda(self) -> tdl_fa.TDLambda:
         return tdl_fa.TDLambda(
             self.get_mdp_rep_for_rl_fa(),
+            self.exploring_start,
             TDAlgorithm.ExpectedSARSA,
             self.softmax,
             self.epsilon,
@@ -302,6 +317,7 @@ if __name__ == '__main__':
     valid = ic.validate_spec()
     mdp_ref_obj = ic.get_mdp_refined()
     this_tolerance = 1e-3
+    exploring_start = False
     this_first_visit_mc = True
     num_samples = 30
     this_softmax = True
@@ -330,6 +346,7 @@ if __name__ == '__main__':
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,
         tolerance=this_tolerance,
+        exploring_start=exploring_start,
         first_visit_mc=this_first_visit_mc,
         num_samples=num_samples,
         softmax=this_softmax,

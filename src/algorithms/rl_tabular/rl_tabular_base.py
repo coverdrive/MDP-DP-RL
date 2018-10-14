@@ -17,6 +17,7 @@ class RLTabularBase(TabularBase):
     def __init__(
         self,
         mdp_rep_for_rl: MDPRepForRLTabular,
+        exploring_start: bool,
         softmax: bool,
         epsilon: float,
         epsilon_half_life: float,
@@ -25,6 +26,7 @@ class RLTabularBase(TabularBase):
     ) -> None:
 
         self.mdp_rep: MDPRepForRLTabular = mdp_rep_for_rl
+        self.exploring_start: bool = exploring_start
         self.softmax: bool = softmax
         self.epsilon_func: Callable[[int], float] = get_epsilon_decay_func(
             epsilon,

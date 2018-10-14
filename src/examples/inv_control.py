@@ -150,6 +150,7 @@ if __name__ == '__main__':
     valid = ic.validate_spec()
     mdp_ref_obj = ic.get_mdp_refined()
     this_tolerance = 1e-3
+    exploring_start = False
     this_first_visit_mc = True
     num_samples = 30
     this_softmax = True
@@ -178,6 +179,7 @@ if __name__ == '__main__':
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,
         tolerance=this_tolerance,
+        exploring_start=exploring_start,
         first_visit_mc=this_first_visit_mc,
         num_samples=num_samples,
         softmax=this_softmax,

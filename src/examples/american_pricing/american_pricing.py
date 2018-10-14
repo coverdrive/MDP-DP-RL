@@ -3,12 +3,12 @@ import numpy as np
 from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_func_approx.monte_carlo import MonteCarlo
 from algorithms.rl_func_approx.td0 import TD0
-from algorithms.rl_func_approx.rl_func_approx_base import RLFuncApproxBase
 from algorithms.rl_func_approx.tdlambda import TDLambda
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from algorithms.func_approx_spec import FuncApproxSpec
 from func_approx.dnn_spec import DNNSpec
+from utils.gen_utils import memoize
 from random import choice
 
 StateType = Tuple[int, np.ndarray]
@@ -42,12 +42,8 @@ class AmericanPricing:
         self.dispersion: Callable[[float, float], float] = dispersion
         self.ir: Callable[[float], float] = ir
 
-    def get_ls_price(
-        self,
-        num_dt: int,
-        num_paths: int,
-        feature_funcs: Sequence[Callable[[float, np.ndarray], float]]
-    ) -> float:
+    @memoize
+    def get_all_paths(self, num_paths: int, num_dt: int) -> np.ndarray:
         dt = self.expiry / num_dt
         paths = np.empty([num_paths, num_dt + 1])
         paths[:, 0] = self.spot_price
@@ -63,8 +59,18 @@ class AmericanPricing:
                 )
                 price = np.random.normal(m, np.sqrt(v))
                 paths[i, t + 1] = price
+        return paths
+
+    def get_ls_price(
+        self,
+        num_dt: int,
+        num_paths: int,
+        feature_funcs: Sequence[Callable[[float, np.ndarray], float]]
+    ) -> float:
+        paths = self.get_all_paths(num_paths, num_dt)
         cashflow = np.array([max(self.payoff(self.expiry, paths[i, :]), 0.)
                              for i in range(num_paths)])
+        dt = self.expiry / num_dt
         for t in range(num_dt - 1, 0, -1):
             """
             For each time slice t
@@ -98,7 +104,7 @@ class AmericanPricing:
                         cashflow[ind] = payoff[ind]
 
         return max(
-            self.payoff(0, np.array([self.spot_price])),
+            self.payoff(0., np.array([self.spot_price])),
             np.average(cashflow * np.exp(-self.ir(dt)))
         )
 
@@ -106,10 +112,10 @@ class AmericanPricing:
         self,
         state: StateType,
         action: ActionType,
-        num_dt: int,
-        delta_t: float
+        num_dt: int
     ) -> Tuple[StateType, float]:
         ind, price_arr = state
+        delta_t = self.expiry / num_dt
         t = ind * delta_t
         reward = (np.exp(-self.ir(t)) * self.payoff(t, price_arr)) if\
             (action and ind <= num_dt) else 0.
@@ -125,22 +131,23 @@ class AmericanPricing:
         next_ind = (num_dt if action else ind) + 1
         return (next_ind, price1), reward
 
-    def get_rl_fa_obj(
+    def get_rl_fa_price(
         self,
         num_dt: int,
         method: str,
+        exploring_start: bool,
         algorithm: TDAlgorithm,
         softmax: bool,
         epsilon: float,
         epsilon_half_life: float,
         lambd: float,
-        num_episodes: int,
+        num_paths: int,
         feature_funcs: Sequence[Callable[[Tuple[StateType, ActionType]], float]],
         neurons: Optional[Sequence[int]],
         learning_rate: float,
         adam: Tuple[bool, float, float],
         offline: bool
-    ) -> RLFuncApproxBase:
+    ) -> float:
         dt = self.expiry / num_dt
 
         def sa_func(_: StateType) -> Set[ActionType]:
@@ -157,10 +164,9 @@ class AmericanPricing:
         def sr_func(
             s: StateType,
             a: ActionType,
-            num_dt=num_dt,
-            dt=dt
+            num_dt=num_dt
         ) -> Tuple[StateType, float]:
-            return self.state_reward_gen(s, a, num_dt, dt)
+            return self.state_reward_gen(s, a, num_dt)
 
         def init_s() -> StateType:
             return 0, np.array([self.spot_price])
@@ -194,41 +200,70 @@ class AmericanPricing:
         )
 
         if method == "MC":
-            ret = MonteCarlo(
+            rl_fa_obj = MonteCarlo(
                 mdp_rep_for_rl=mdp_rep_obj,
+                exploring_start=exploring_start,
                 softmax=softmax,
                 epsilon=epsilon,
                 epsilon_half_life=epsilon_half_life,
-                num_episodes=num_episodes,
+                num_episodes=num_paths,
                 max_steps=num_dt + 2,
                 fa_spec=fa_spec
             )
         elif method == "TD0":
-            ret = TD0(
+            rl_fa_obj = TD0(
                 mdp_rep_for_rl=mdp_rep_obj,
+                exploring_start=exploring_start,
                 algorithm=algorithm,
                 softmax=softmax,
                 epsilon=epsilon,
                 epsilon_half_life=epsilon_half_life,
-                num_episodes=num_episodes,
+                num_episodes=num_paths,
                 max_steps=num_dt + 2,
                 fa_spec=fa_spec
             )
         else:
-            ret = TDLambda(
+            rl_fa_obj = TDLambda(
                 mdp_rep_for_rl=mdp_rep_obj,
+                exploring_start=exploring_start,
                 algorithm=algorithm,
                 softmax=softmax,
                 epsilon=epsilon,
                 epsilon_half_life=epsilon_half_life,
                 lambd=lambd,
-                num_episodes=num_episodes,
+                num_episodes=num_paths,
                 max_steps=num_dt + 2,
                 fa_spec=fa_spec,
                 offline=offline
             )
+        qvf = rl_fa_obj.get_qv_func_fa(None)
+        # init_s = (0, np.array([self.spot_price]))
+        # val_exec = qvf(init_s)(True)
+        # val_cont = qvf(init_s)(False)
+        # true_false_spot_max = max(val_exec, val_cont)
 
-        return ret
+        all_paths = self.get_all_paths(num_paths, num_dt + 1)
+        prices = np.zeros(num_paths)
+
+        for path_num, path in enumerate(all_paths):
+            steps = 0
+            price_seq = np.array([])
+            while steps <= num_dt:
+                price_seq = np.append(price_seq, path[steps])
+                state = (steps, price_seq)
+                exercise_price = np.exp(-self.ir(dt * steps)) *\
+                                 self.payoff(dt * steps, price_seq)
+                continue_price = qvf(state)(False)
+                steps += 1
+                if exercise_price > continue_price:
+                    prices[path_num] = exercise_price
+                    steps = num_dt + 1
+                    # print(state)
+                    # print(exercise_price)
+                    # print(continue_price)
+                    # print(qvf(state)(True))
+
+        return np.average(prices)
 
     # noinspection PyShadowingNames
     @staticmethod
@@ -246,7 +281,7 @@ class AmericanPricing:
     ) -> Mapping[str, float]:
         from numpy.polynomial.laguerre import lagval
         from examples.american_pricing.grid_pricing import GridPricing
-        payoff = lambda _, x, is_call=is_call, strike=strike:\
+        opt_payoff = lambda _, x, is_call=is_call, strike=strike:\
             (1 if is_call else -1) * (x - strike)
         dispersion = lambda _, x, sigma=sigma: sigma * x
         # noinspection PyShadowingNames
@@ -258,7 +293,7 @@ class AmericanPricing:
 
         grid_price = GridPricing(
             spot_price=spot_price,
-            payoff=payoff,
+            payoff=opt_payoff,
             expiry=expiry,
             dispersion=dispersion,
             ir=ir_func
@@ -270,7 +305,7 @@ class AmericanPricing:
 
         gp = AmericanPricing(
             spot_price=spot_price,
-            payoff=(lambda t, x, payoff=payoff: payoff(t, x[-1])),
+            payoff=(lambda t, x, opt_payoff=opt_payoff: opt_payoff(t, x[-1])),
             expiry=expiry,
             dispersion=dispersion,
             ir=ir_func
@@ -324,21 +359,22 @@ class AmericanPricing:
                     ret = 0.
             else:
                 if ind <= num_dt and a:
-                    ret = payoff(ind * dt, x)
+                    ret = np.exp(-r * (ind * dt)) * opt_payoff(ind * dt, x)
                 else:
-                    ret = 0
+                    ret = 0.
 
             return ret
 
-        rl_fa_obj = gp.get_rl_fa_obj(
+        rl_price = gp.get_rl_fa_price(
             num_dt=num_dt,
             method=params_bag["method"],
+            exploring_start=params_bag["exploring_start"],
             algorithm=params_bag["algorithm"],
             softmax=params_bag["softmax"],
             epsilon=params_bag["epsilon"],
             epsilon_half_life=params_bag["epsilon_half_life"],
             lambd=params_bag["lambda"],
-            num_episodes=num_paths,
+            num_paths=num_paths,
             feature_funcs=[(lambda x, i=i: rl_feature_func(
                 x[0][0],
                 x[0][1][-1],
@@ -350,11 +386,6 @@ class AmericanPricing:
             adam=params_bag["adam"],
             offline=params_bag["offline"]
         )
-        qvf = rl_fa_obj.get_qv_func_fa(None)
-        init_s = (0, np.array([spot_price]))
-        val_exec = qvf(init_s)(True)
-        val_cont = qvf(init_s)(False)
-        rl_price = max(val_exec, val_cont)
 
         return {
             "Grid": grid_price,
@@ -375,15 +406,16 @@ if __name__ == '__main__':
     num_laguerre_val = 3
 
     params_bag_val = {
-        "method": "TD0",
+        "method": "TDL",
+        "exploring_start": False,
         "algorithm": TDAlgorithm.ExpectedSARSA,
         "softmax": False,
         "epsilon": 0.2,
         "epsilon_half_life": 100000,
         "neurons": None,
-        "learning_rate": 0.05,
+        "learning_rate": 0.2,
         "adam": (True, 0.9, 0.99),
-        "lambda": 0.0,
+        "lambda": 0.8,
         "offline": False
     }
 

@@ -170,6 +170,7 @@ if __name__ == '__main__':
     valid = wg.validate_spec()
     mdp_ref_obj = wg.get_mdp_refined()
     this_tolerance = 1e-3
+    exploring_start = False
     this_first_visit_mc = True
     this_num_samples = 30
     this_softmax = False
@@ -183,9 +184,9 @@ if __name__ == '__main__':
     this_td_offline = True
     state_ffs = FuncApproxBase.get_indicator_feature_funcs(mdp_ref_obj.all_states)
     sa_ffs = [(lambda x, f=f: f(x[0])) for f in state_ffs] +\
-            [(lambda x, f=f: f(x[1])) for f in FuncApproxBase.get_indicator_feature_funcs(
-                {m.name for m in Move}
-            )]
+        [(lambda x, f=f: f(x[1])) for f in FuncApproxBase.get_indicator_feature_funcs(
+            {m.name for m in Move}
+        )]
     this_fa_spec = FuncApproxSpec(
         state_feature_funcs=state_ffs,
         sa_feature_funcs=sa_ffs,
@@ -202,6 +203,7 @@ if __name__ == '__main__':
     raa = RunAllAlgorithms(
         mdp_refined=mdp_ref_obj,
         tolerance=this_tolerance,
+        exploring_start=exploring_start,
         first_visit_mc=this_first_visit_mc,
         num_samples=this_num_samples,
         softmax=this_softmax,

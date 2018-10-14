@@ -17,6 +17,7 @@ class MonteCarlo(RLTabularBase):
     def __init__(
         self,
         mdp_rep_for_rl: MDPRepForRLTabular,
+        exploring_start: bool,
         first_visit: bool,
         softmax: bool,
         epsilon: float,
@@ -27,6 +28,7 @@ class MonteCarlo(RLTabularBase):
 
         super().__init__(
             mdp_rep_for_rl=mdp_rep_for_rl,
+            exploring_start=exploring_start,
             softmax=softmax,
             epsilon=epsilon,
             epsilon_half_life=epsilon_half_life,
@@ -114,7 +116,11 @@ class MonteCarlo(RLTabularBase):
         episodes = 0
 
         while episodes < self.num_episodes:
-            start_state, start_action = self.mdp_rep.init_state_action_gen()
+            if self.exploring_start:
+                start_state, start_action = self.mdp_rep.init_state_action_gen()
+            else:
+                start_state = self.mdp_rep.init_state_gen()
+                start_action = None
             mc_path = self.get_mc_path(
                 this_pol,
                 start_state,
@@ -170,6 +176,7 @@ if __name__ == '__main__':
     mdp_ref_obj1 = MDPRefined(mdp_refined_data, gamma_val)
     mdp_rep_obj = mdp_ref_obj1.get_mdp_rep_for_rl_tabular()
 
+    exploring_start_val = False
     first_visit_flag = True
     softmax_flag = False
     episodes_limit = 1000
@@ -178,6 +185,7 @@ if __name__ == '__main__':
     max_steps_val = 1000
     mc_obj = MonteCarlo(
         mdp_rep_obj,
+        exploring_start_val,
         first_visit_flag,
         softmax_flag,
         epsilon_val,
