@@ -40,6 +40,7 @@ class RunAllAlgorithms(NamedTuple):
     learning_rate_decay: float
     lambd: float
     num_episodes: int
+    batch_size: int
     max_steps: int
     tdl_fa_offline: bool
     fa_spec: FuncApproxSpec
@@ -262,6 +263,7 @@ class RunAllAlgorithms(NamedTuple):
             self.epsilon_half_life,
             self.lambd,
             self.num_episodes,
+            self.batch_size,
             self.max_steps,
             self.fa_spec,
             self.tdl_fa_offline
@@ -277,6 +279,7 @@ class RunAllAlgorithms(NamedTuple):
             self.epsilon_half_life,
             self.lambd,
             self.num_episodes,
+            self.batch_size,
             self.max_steps,
             self.fa_spec,
             self.tdl_fa_offline
@@ -292,6 +295,7 @@ class RunAllAlgorithms(NamedTuple):
             self.epsilon_half_life,
             self.lambd,
             self.num_episodes,
+            self.batch_size,
             self.max_steps,
             self.fa_spec,
             self.tdl_fa_offline
@@ -327,6 +331,7 @@ if __name__ == '__main__':
     this_learning_rate_decay = 1e6
     this_lambd = 0.8
     this_num_episodes = 3000
+    this_batch_size = 10
     this_max_steps = 1000
     this_tdl_fa_offline = True
     state_ffs = FuncApproxBase.get_identity_feature_funcs(ic.lead_time + 1)
@@ -356,6 +361,7 @@ if __name__ == '__main__':
         learning_rate_decay=this_learning_rate_decay,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
+        batch_size=this_batch_size,
         max_steps=this_max_steps,
         tdl_fa_offline=this_tdl_fa_offline,
         fa_spec=this_fa_spec
