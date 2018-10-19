@@ -143,6 +143,7 @@ class AmericanPricing:
         epsilon_half_life: float,
         lambd: float,
         num_paths: int,
+        batch_size: int,
         feature_funcs: Sequence[Callable[[Tuple[StateType, ActionType]], float]],
         neurons: Optional[Sequence[int]],
         learning_rate: float,
@@ -234,6 +235,7 @@ class AmericanPricing:
                 epsilon_half_life=epsilon_half_life,
                 lambd=lambd,
                 num_episodes=num_paths,
+                batch_size=batch_size,
                 max_steps=num_dt + 2,
                 fa_spec=fa_spec,
                 offline=offline
@@ -248,6 +250,7 @@ class AmericanPricing:
                 epsilon_half_life=epsilon_half_life,
                 lambd=lambd,
                 num_episodes=num_paths,
+                batch_size=batch_size,
                 max_steps=num_dt + 2,
                 state_feature_funcs=[],
                 sa_feature_funcs=feature_funcs,
@@ -396,6 +399,7 @@ class AmericanPricing:
             epsilon_half_life=params_bag["epsilon_half_life"],
             lambd=params_bag["lambda"],
             num_paths=num_paths,
+            batch_size=params_bag["batch_size"],
             feature_funcs=[(lambda x, i=i: rl_feature_func(
                 x[0][0],
                 x[0][1][-1],
@@ -424,7 +428,7 @@ if __name__ == '__main__':
     r_val = 0.02
     sigma_val = 0.25
     num_dt_val = 10
-    num_paths_val = 10000
+    num_paths_val = 100000
     num_laguerre_val = 3
 
     params_bag_val = {
@@ -433,13 +437,14 @@ if __name__ == '__main__':
         "algorithm": TDAlgorithm.ExpectedSARSA,
         "softmax": False,
         "epsilon": 0.2,
-        "epsilon_half_life": 1000,
+        "epsilon_half_life": 10000,
+        "batch_size": 1000,
         "neurons": None,
         "learning_rate": 0.03,
-        "learning_rate_decay": 1000,
+        "learning_rate_decay": 10000,
         "adam": (True, 0.9, 0.99),
         "lambda": 0.8,
-        "offline": False
+        "offline": True,
     }
 
     am_prices = AmericanPricing.get_vanilla_american_price(
