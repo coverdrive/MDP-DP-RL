@@ -23,6 +23,7 @@ class TDLambdaExact(RLFuncApproxBase):
         epsilon_half_life: float,
         lambd: float,
         num_episodes: int,
+        batch_size: int,
         max_steps: int,
         state_feature_funcs: Sequence[Callable[[S], float]],
         sa_feature_funcs: Sequence[Callable[[Tuple[S, A]], float]],
@@ -51,6 +52,7 @@ class TDLambdaExact(RLFuncApproxBase):
         self.qvf_fa.params = [self.qvf_w]
         self.algorithm: TDAlgorithm = algorithm
         self.gamma_lambda: float = self.mdp_rep.gamma * lambd
+        self.batch_size: int = batch_size
         self.learning_rate_decay: float = learning_rate_decay
 
     # noinspection PyShadowingNames
@@ -109,9 +111,9 @@ class TDLambdaExact(RLFuncApproxBase):
                 action = get_rv_gen_func_single(this_polf(state))()
             features = self.qvf_fa.get_feature_vals((state, action))
 
-            print((episodes, max(self.qvf_fa.get_feature_vals((state, a)).dot(self.qvf_w)
-                                 for a in self.mdp_rep.state_action_func(state))))
-            print(self.qvf_w)
+            # print((episodes, max(self.qvf_fa.get_feature_vals((state, a)).dot(self.qvf_w)
+            #                      for a in self.mdp_rep.state_action_func(state))))
+            # print(self.qvf_w)
 
             old_qvf_fa = 0.
             steps = 0
@@ -148,7 +150,8 @@ class TDLambdaExact(RLFuncApproxBase):
                     (1 - alpha * self.gamma_lambda * et.dot(features))
                 self.qvf_w += alpha * (et * (delta + qvf_fa - old_qvf_fa) -
                                        features * (qvf_fa - old_qvf_fa))
-                if control:
+
+                if control and self.batch_size == 0:
                     this_polf = get_soft_policy_func_from_qf(
                         lambda sa: self.qvf_fa.get_feature_vals(sa).dot(self.qvf_w),
                         self.state_action_func,
@@ -165,6 +168,15 @@ class TDLambdaExact(RLFuncApproxBase):
                 features = next_features
 
             episodes += 1
+
+            if control and self.batch_size != 0 and\
+                    episodes % self.batch_size == 0:
+                this_polf = get_soft_policy_func_from_qf(
+                    self.qvf_fa.get_func_eval,
+                    self.state_action_func,
+                    self.softmax,
+                    self.epsilon_func(episodes)
+                )
 
         return lambda st: lambda act, st=st: self.qvf_fa.get_feature_vals(
             (st, act)).dot(self.qvf_w)

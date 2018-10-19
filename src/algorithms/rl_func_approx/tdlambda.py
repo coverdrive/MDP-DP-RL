@@ -23,6 +23,7 @@ class TDLambda(RLFuncApproxBase):
         epsilon_half_life: float,
         lambd: float,
         num_episodes: int,
+        batch_size: int,
         max_steps: int,
         fa_spec: FuncApproxSpec,
         offline: bool
@@ -39,8 +40,9 @@ class TDLambda(RLFuncApproxBase):
             fa_spec=fa_spec
         )
         self.algorithm: TDAlgorithm = algorithm
-        self.gamma_lambda = self.mdp_rep.gamma * lambd
-        self.offline = offline
+        self.gamma_lambda: float = self.mdp_rep.gamma * lambd
+        self.batch_size: int = batch_size
+        self.offline: bool = offline
 
     def get_value_func_fa(self, polf: PolicyActDictType) -> VFType:
         episodes = 0
@@ -149,7 +151,7 @@ class TDLambda(RLFuncApproxBase):
                     self.qvf_fa.update_params_from_gradient(
                         [-e * delta for e in et]
                     )
-                if control:
+                if control and self.batch_size == 0:
                     this_polf = get_soft_policy_func_from_qf(
                         self.qvf_fa.get_func_eval,
                         self.state_action_func,
@@ -171,7 +173,18 @@ class TDLambda(RLFuncApproxBase):
                                 self.gamma_lambda
                             )]
                 self.qvf_fa.update_params_from_gradient(avg_grad)
+
             episodes += 1
+
+            if control and self.batch_size != 0 and\
+                    episodes % self.batch_size == 0:
+                this_polf = get_soft_policy_func_from_qf(
+                    self.qvf_fa.get_func_eval,
+                    self.state_action_func,
+                    self.softmax,
+                    self.epsilon_func(episodes)
+                )
+
 
         return lambda st: lambda act, st=st: self.qvf_fa.get_func_eval((st, act))
 
