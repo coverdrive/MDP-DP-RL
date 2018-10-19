@@ -4,6 +4,7 @@ from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_func_approx.monte_carlo import MonteCarlo
 from algorithms.rl_func_approx.td0 import TD0
 from algorithms.rl_func_approx.tdlambda import TDLambda
+from algorithms.rl_func_approx.tdlambda_exact import TDLambdaExact
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from algorithms.func_approx_spec import FuncApproxSpec
@@ -145,6 +146,7 @@ class AmericanPricing:
         feature_funcs: Sequence[Callable[[Tuple[StateType, ActionType]], float]],
         neurons: Optional[Sequence[int]],
         learning_rate: float,
+        learning_rate_decay: float,
         adam: Tuple[bool, float, float],
         offline: bool
     ) -> float:
@@ -222,7 +224,7 @@ class AmericanPricing:
                 max_steps=num_dt + 2,
                 fa_spec=fa_spec
             )
-        else:
+        elif method == "TDL":
             rl_fa_obj = TDLambda(
                 mdp_rep_for_rl=mdp_rep_obj,
                 exploring_start=exploring_start,
@@ -236,6 +238,23 @@ class AmericanPricing:
                 fa_spec=fa_spec,
                 offline=offline
             )
+        else:
+            rl_fa_obj = TDLambdaExact(
+                mdp_rep_for_rl=mdp_rep_obj,
+                exploring_start=exploring_start,
+                algorithm=algorithm,
+                softmax=softmax,
+                epsilon=epsilon,
+                epsilon_half_life=epsilon_half_life,
+                lambd=lambd,
+                num_episodes=num_paths,
+                max_steps=num_dt + 2,
+                state_feature_funcs=[],
+                sa_feature_funcs=feature_funcs,
+                learning_rate=learning_rate,
+                learning_rate_decay=learning_rate_decay
+            )
+
         qvf = rl_fa_obj.get_qv_func_fa(None)
         # init_s = (0, np.array([self.spot_price]))
         # val_exec = qvf(init_s)(True)
@@ -287,21 +306,22 @@ class AmericanPricing:
         # noinspection PyShadowingNames
         ir_func = lambda t, r=r: r * t
 
-        x_lim = 4. * sigma * spot_price * np.sqrt(expiry)
-        num_dx = 200
-        dx = x_lim / num_dx
-
-        grid_price = GridPricing(
-            spot_price=spot_price,
-            payoff=opt_payoff,
-            expiry=expiry,
-            dispersion=dispersion,
-            ir=ir_func
-        ).get_price(
-            num_dt=num_dt,
-            dx=dx,
-            num_dx=num_dx
-        )
+        # x_lim = 4. * sigma * spot_price * np.sqrt(expiry)
+        # num_dx = 200
+        # dx = x_lim / num_dx
+        #
+        # grid_price = GridPricing(
+        #     spot_price=spot_price,
+        #     payoff=opt_payoff,
+        #     expiry=expiry,
+        #     dispersion=dispersion,
+        #     ir=ir_func
+        # ).get_price(
+        #     num_dt=num_dt,
+        #     dx=dx,
+        #     num_dx=num_dx
+        # )
+        grid_price = 0.
 
         gp = AmericanPricing(
             spot_price=spot_price,
@@ -323,13 +343,14 @@ class AmericanPricing:
             return np.exp(-x / (strike * 2)) * \
                    lagval(x / strike, ident[i])
 
-        ls_price = gp.get_ls_price(
-            num_dt=num_dt,
-            num_paths=num_paths,
-            feature_funcs=[lambda _, x: 1.] +
-                          [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
-                           range(num_laguerre)]
-        )
+        # ls_price = gp.get_ls_price(
+        #     num_dt=num_dt,
+        #     num_paths=num_paths,
+        #     feature_funcs=[lambda _, x: 1.] +
+        #                   [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
+        #                    range(num_laguerre)]
+        # )
+        ls_price = 0.
 
         # noinspection PyShadowingNames
         def rl_feature_func(
@@ -383,6 +404,7 @@ class AmericanPricing:
             )) for i in range(num_laguerre + 5)],
             neurons=params_bag["neurons"],
             learning_rate=params_bag["learning_rate"],
+            learning_rate_decay=params_bag["learning_rate_decay"],
             adam=params_bag["adam"],
             offline=params_bag["offline"]
         )
@@ -402,18 +424,19 @@ if __name__ == '__main__':
     r_val = 0.02
     sigma_val = 0.25
     num_dt_val = 10
-    num_paths_val = 1000000
+    num_paths_val = 10000
     num_laguerre_val = 3
 
     params_bag_val = {
-        "method": "TDL",
+        "method": "TDLE",
         "exploring_start": False,
         "algorithm": TDAlgorithm.ExpectedSARSA,
         "softmax": False,
         "epsilon": 0.2,
-        "epsilon_half_life": 100000,
+        "epsilon_half_life": 1000,
         "neurons": None,
-        "learning_rate": 0.2,
+        "learning_rate": 0.03,
+        "learning_rate_decay": 1000,
         "adam": (True, 0.9, 0.99),
         "lambda": 0.8,
         "offline": False
