@@ -108,6 +108,11 @@ class TDLambdaExact(RLFuncApproxBase):
                 state = self.mdp_rep.init_state_gen()
                 action = get_rv_gen_func_single(this_polf(state))()
             features = self.qvf_fa.get_feature_vals((state, action))
+
+            print((episodes, max(self.qvf_fa.get_feature_vals((state, a)).dot(self.qvf_w)
+                                 for a in self.mdp_rep.state_action_func(state))))
+            print(self.qvf_w)
+
             old_qvf_fa = 0.
             steps = 0
             terminate = False
@@ -143,7 +148,6 @@ class TDLambdaExact(RLFuncApproxBase):
                     (1 - alpha * self.gamma_lambda * et.dot(features))
                 self.qvf_w += alpha * (et * (delta + qvf_fa - old_qvf_fa) -
                                        features * (qvf_fa - old_qvf_fa))
-                updates += 1
                 if control:
                     this_polf = get_soft_policy_func_from_qf(
                         lambda sa: self.qvf_fa.get_feature_vals(sa).dot(self.qvf_w),
@@ -151,6 +155,7 @@ class TDLambdaExact(RLFuncApproxBase):
                         self.softmax,
                         self.epsilon_func(episodes)
                     )
+                updates += 1
                 steps += 1
                 terminate = steps >= self.max_steps or \
                     self.mdp_rep.terminal_state_func(state)
