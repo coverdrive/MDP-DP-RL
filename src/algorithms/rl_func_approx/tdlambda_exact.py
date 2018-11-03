@@ -175,7 +175,7 @@ class TDLambdaExact(RLFuncApproxBase):
                     self.qvf_fa.get_func_eval,
                     self.state_action_func,
                     self.softmax,
-                    self.epsilon_func(episodes)
+                    self.epsilon_func(episodes - 1)
                 )
 
         return lambda st: lambda act, st=st: self.qvf_fa.get_feature_vals(
