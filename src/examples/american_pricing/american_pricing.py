@@ -1,10 +1,11 @@
-from typing import Callable, Sequence, Tuple, Set, Optional, Mapping, Any
+from typing import Callable, Sequence, Tuple, Set, Optional
 import numpy as np
 from algorithms.td_algo_enum import TDAlgorithm
 from algorithms.rl_func_approx.monte_carlo import MonteCarlo
 from algorithms.rl_func_approx.td0 import TD0
 from algorithms.rl_func_approx.tdlambda import TDLambda
 from algorithms.rl_func_approx.tdlambda_exact import TDLambdaExact
+from algorithms.rl_func_approx.lspi import LSPI
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from algorithms.func_approx_spec import FuncApproxSpec
@@ -14,6 +15,7 @@ from random import choice
 
 StateType = Tuple[int, np.ndarray]
 ActionType = bool
+OneMinusEpsilon = 1. - 1e4
 
 
 class AmericanPricing:
@@ -180,7 +182,7 @@ class AmericanPricing:
         # noinspection PyShadowingNames
         mdp_rep_obj = MDPRepForRLFA(
             state_action_func=sa_func,
-            gamma=1.,
+            gamma=OneMinusEpsilon,
             terminal_state_func=terminal_state,
             state_reward_gen_func=sr_func,
             init_state_gen=init_s,
@@ -240,7 +242,7 @@ class AmericanPricing:
                 fa_spec=fa_spec,
                 offline=offline
             )
-        else:
+        elif method == "TDE":
             rl_fa_obj = TDLambdaExact(
                 mdp_rep_for_rl=mdp_rep_obj,
                 exploring_start=exploring_start,
@@ -257,6 +259,19 @@ class AmericanPricing:
                 learning_rate=learning_rate,
                 learning_rate_decay=learning_rate_decay
             )
+        else:
+            rl_fa_obj = LSPI(
+                mdp_rep_for_rl=mdp_rep_obj,
+                exploring_start=exploring_start,
+                softmax=softmax,
+                epsilon=epsilon,
+                epsilon_half_life=epsilon_half_life,
+                num_episodes=num_paths,
+                batch_size=batch_size,
+                max_steps=num_dt + 2,
+                state_feature_funcs=[],
+                sa_feature_funcs=feature_funcs
+            )
 
         qvf = rl_fa_obj.get_qv_func_fa(None)
         # init_s = (0, np.array([self.spot_price]))
@@ -269,9 +284,8 @@ class AmericanPricing:
 
         for path_num, path in enumerate(all_paths):
             steps = 0
-            price_seq = np.array([])
             while steps <= num_dt:
-                price_seq = np.append(price_seq, path[steps])
+                price_seq = path[:(steps + 1)]
                 state = (steps, price_seq)
                 exercise_price = np.exp(-self.ir(dt * steps)) *\
                     self.payoff(dt * steps, price_seq)
@@ -287,137 +301,62 @@ class AmericanPricing:
 
         return np.average(prices)
 
-    # noinspection PyShadowingNames
-    @staticmethod
-    def get_vanilla_american_price(
-        is_call: bool,
-        spot_price: float,
-        strike: float,
-        expiry: float,
-        r: float,
-        sigma: float,
+    def get_lspi_price(
+        self,
         num_dt: int,
         num_paths: int,
-        num_laguerre: int,
-        params_bag: Mapping[str, Any]
-    ) -> Mapping[str, float]:
-        from numpy.polynomial.laguerre import lagval
-        from examples.american_pricing.grid_pricing import GridPricing
-        opt_payoff = lambda _, x, is_call=is_call, strike=strike:\
-            (1 if is_call else -1) * (x - strike)
-        dispersion = lambda _, x, sigma=sigma: sigma * x
-        # noinspection PyShadowingNames
-        ir_func = lambda t, r=r: r * t
+        feature_funcs: Sequence[Callable[[int, np.ndarray], float]],
+        batch_size: int
+    ) -> float:
+        features = len(feature_funcs)
+        a_mat = np.zeros((features, features))
+        b_vec = np.zeros(features)
+        params = np.zeros(features)
+        paths = self.get_all_paths(num_paths, num_dt + 1)
+        dt = self.expiry / num_dt
 
-        # x_lim = 4. * sigma * spot_price * np.sqrt(expiry)
-        # num_dx = 200
-        # dx = x_lim / num_dx
-        #
-        # grid_price = GridPricing(
-        #     spot_price=spot_price,
-        #     payoff=opt_payoff,
-        #     expiry=expiry,
-        #     dispersion=dispersion,
-        #     ir=ir_func
-        # ).get_price(
-        #     num_dt=num_dt,
-        #     dx=dx,
-        #     num_dx=num_dx
-        # )
-        grid_price = 0.
+        for path_num, path in enumerate(paths):
 
-        gp = AmericanPricing(
-            spot_price=spot_price,
-            payoff=(lambda t, x, opt_payoff=opt_payoff: opt_payoff(t, x[-1])),
-            expiry=expiry,
-            dispersion=dispersion,
-            ir=ir_func
-        )
-        ident = np.eye(num_laguerre)
+            for step in range(num_dt):
+                t = step * dt
+                disc = np.exp(self.ir(t + dt) - self.ir(t))
+                phi_s = np.array([f(step, paths[:(step + 1)]) for f in feature_funcs])
+                next_payoff = self.payoff(t + dt, path[:(step + 2)])
+                exercise = next_payoff > params.dot(
+                    [f(step + 1, path[:(step + 2)]) for f in feature_funcs]
+                )
+                phi_sp = 0. if exercise else np.array(
+                    [f(step + 1, path[:(step + 2)]) for f in feature_funcs]
+                )
+                reward = next_payoff if exercise else 0.
+                a_mat += np.outer(
+                    phi_s,
+                    phi_s - phi_sp * disc
+                )
+                b_vec += reward * disc * phi_s
 
-        # noinspection PyShadowingNames
-        def laguerre_feature_func(
-            x: float,
-            i: int,
-            ident=ident,
-            strike=strike
-        ) -> float:
-            # noinspection PyTypeChecker
-            return np.exp(-x / (strike * 2)) * \
-                   lagval(x / strike, ident[i])
+            if (path_num + 1) % batch_size == 0:
+                params = [np.linalg.inv(a_mat).dot(b_vec)]
+                a_mat = np.zeros((features, features))
+                b_vec = np.zeros(features)
 
-        # ls_price = gp.get_ls_price(
-        #     num_dt=num_dt,
-        #     num_paths=num_paths,
-        #     feature_funcs=[lambda _, x: 1.] +
-        #                   [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
-        #                    range(num_laguerre)]
-        # )
-        ls_price = 0.
+        all_paths = self.get_all_paths(num_paths, num_dt + 1)
+        prices = np.zeros(num_paths)
 
-        # noinspection PyShadowingNames
-        def rl_feature_func(
-            ind: int,
-            x: float,
-            a: bool,
-            i: int,
-            num_laguerre: int = num_laguerre,
-            num_dt: int = num_dt,
-            expiry: float = expiry
-        ) -> float:
-            dt = expiry / num_dt
-            if i < num_laguerre + 4:
-                if ind < num_dt and not a:
-                    if i == 0:
-                        ret = 1.
-                    elif i < num_laguerre + 1:
-                        ret = laguerre_feature_func(x, i - 1)
-                    elif i == num_laguerre + 1:
-                        ret = np.sin(-ind * np.pi / (2. * num_dt) + np.pi / 2.)
-                    elif i == num_laguerre + 2:
-                        ret = np.log(dt * (num_dt - ind))
-                    else:
-                        rat = float(ind) / num_dt
-                        ret = rat * rat
-                else:
-                    ret = 0.
-            else:
-                if ind <= num_dt and a:
-                    ret = np.exp(-r * (ind * dt)) * opt_payoff(ind * dt, x)
-                else:
-                    ret = 0.
+        for path_num, path in enumerate(all_paths):
+            step = 0
+            while step <= num_dt:
+                t = dt * step
+                price_seq = path[:(step + 1)]
+                exercise_price = self.payoff(t, price_seq)
+                continue_price = params.dot([f(step, price_seq) for f in
+                                             feature_funcs])
+                step += 1
+                if exercise_price > continue_price:
+                    prices[path_num] = np.exp(-self.ir(t) * exercise_price)
+                    step = num_dt + 1
 
-            return ret
-
-        rl_price = gp.get_rl_fa_price(
-            num_dt=num_dt,
-            method=params_bag["method"],
-            exploring_start=params_bag["exploring_start"],
-            algorithm=params_bag["algorithm"],
-            softmax=params_bag["softmax"],
-            epsilon=params_bag["epsilon"],
-            epsilon_half_life=params_bag["epsilon_half_life"],
-            lambd=params_bag["lambda"],
-            num_paths=num_paths,
-            batch_size=params_bag["batch_size"],
-            feature_funcs=[(lambda x, i=i: rl_feature_func(
-                x[0][0],
-                x[0][1][-1],
-                x[1],
-                i
-            )) for i in range(num_laguerre + 5)],
-            neurons=params_bag["neurons"],
-            learning_rate=params_bag["learning_rate"],
-            learning_rate_decay=params_bag["learning_rate_decay"],
-            adam=params_bag["adam"],
-            offline=params_bag["offline"]
-        )
-
-        return {
-            "Grid": grid_price,
-            "LS": ls_price,
-            "RL": rl_price
-        }
+        return np.average(prices)
 
 
 if __name__ == '__main__':
@@ -430,39 +369,9 @@ if __name__ == '__main__':
     num_dt_val = 10
     num_paths_val = 100000
     num_laguerre_val = 3
+    batch_size_val = 1000
 
-    params_bag_val = {
-        "method": "TDLE",
-        "exploring_start": False,
-        "algorithm": TDAlgorithm.ExpectedSARSA,
-        "softmax": False,
-        "epsilon": 0.2,
-        "epsilon_half_life": 10000,
-        "batch_size": 1000,
-        "neurons": None,
-        "learning_rate": 0.03,
-        "learning_rate_decay": 10000,
-        "adam": (True, 0.9, 0.99),
-        "lambda": 0.8,
-        "offline": True,
-    }
-
-    am_prices = AmericanPricing.get_vanilla_american_price(
-        is_call=is_call_val,
-        spot_price=spot_price_val,
-        strike=strike_val,
-        expiry=expiry_val,
-        r=r_val,
-        sigma=sigma_val,
-        num_dt=num_dt_val,
-        num_paths=num_paths_val,
-        num_laguerre=num_laguerre_val,
-        params_bag=params_bag_val
-    )
-    print(am_prices)
-    print(params_bag_val)
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
-
     ebsp = EuropeanBSPricing(
         is_call=is_call_val,
         spot_price=spot_price_val,
@@ -471,4 +380,70 @@ if __name__ == '__main__':
         r=r_val,
         sigma=sigma_val
     )
-    print(ebsp.option_price)
+    print("European Price = %.3f" % ebsp.option_price)
+
+    def vanilla_american_payoff(_: float, x: np.ndarray) -> float:
+        if is_call_val:
+            ret = max(x[-1] - strike_val, 0.)
+        else:
+            ret = max(strike_val - x[-1], 0.)
+        return ret
+
+    amp = AmericanPricing(
+        spot_price=spot_price_val,
+        payoff=lambda t, x: vanilla_american_payoff(t, x),
+        expiry=expiry_val,
+        dispersion=lambda _, x: sigma_val * x,
+        ir=lambda t: r_val * t
+    )
+
+    ident = np.eye(num_laguerre_val)
+
+    from numpy.polynomial.laguerre import lagval
+
+    # noinspection PyShadowingNames
+    def laguerre_feature_func(
+        x: float,
+        i: int
+    ) -> float:
+        # noinspection PyTypeChecker
+        return np.exp(-x / (strike_val * 2)) * \
+               lagval(x / strike_val, ident[i])
+
+    ls_price = amp.get_ls_price(
+        num_dt=num_dt_val,
+        num_paths=num_paths_val,
+        feature_funcs=[lambda _, x: 1.] +
+                      [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
+                       range(num_laguerre_val)]
+    )
+
+    print("Longstaff-Schwartz Price = %.3f" % ls_price)
+
+    def rl_feature_func(
+        t: float,
+        x: float,
+        i: int
+    ) -> float:
+        if i == 0:
+            ret = 1.
+        elif i < num_laguerre_val + 1:
+            ret = laguerre_feature_func(x, i - 1)
+        elif i == num_laguerre_val + 1:
+            ret = np.sin(-t * np.pi / (2. * expiry_val) + np.pi / 2.)
+        elif i == num_laguerre_val + 2:
+            ret = np.log(expiry_val - t)
+        else:
+            rat = t / expiry_val
+            ret = rat * rat
+        return ret
+
+    lspi_price = amp.get_lspi_price(
+        num_dt=num_dt_val,
+        num_paths=num_paths_val,
+        feature_funcs=[lambda t, x, i=i: rl_feature_func(t, x[-1], i) for i in
+                       range(num_laguerre_val + 4)],
+        batch_size=batch_size_val
+    )
+
+    print("LSPI Price = %.3f" % lspi_price)
