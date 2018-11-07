@@ -15,20 +15,29 @@ from random import choice
 
 StateType = Tuple[int, np.ndarray]
 ActionType = bool
-OneMinusEpsilon = 1. - 1e4
+ALMOSTONEGAMMA = 1. - 1e4
 
 
 class AmericanPricing:
     """
-    In the risk-neutral measure, the underlying price x_t
-    follows the Ito process: dx_t = r_t x_t dt + dispersion(t, x_t) dz_t
-    spot_price is x_0
-    payoff is a function from (t, (x_0, ..., x_t) to payoff (
-    eg: \sum_{i=0}^t x_i / (t+1) - K)
-    expiry is the time to expiry of american option (in years)
-    dispersion(t, x_t) is a function from (t, x_t) to dispersion
-    We define ir_t = \int_0^t r_u du, so discount D_t = e^{- ir_t}
-    where r_t is the infinitesimal risk-free rate at time t
+        In the risk-neutral measure, the underlying price x_t
+        follows the Ito process: dx_t = r(t) x_t dt + dispersion(t, x_t) dz_t
+        spot_price is x_0
+        In this module, we only allow two types of dispersion functions,
+        Type 1 (a.k.a. "lognormal") : dx_t = r(t) x_t dt + sigma(t) x_t dz_t
+        Type 2 (a.k.a. "normal"): dx_t = r(t) x_t dt + sigma(t) dz_t
+        payoff is a function from (t, x_t) to payoff (eg: x_t - K)
+        expiry is the time to expiry of american option (in years)
+        lognormal is a bool that defines whether our dispersion function
+        amounts to Type 1(lognormal) or Type 2(normal)
+        r(t) is a function from (time t) to risk-free rate
+        sigma(t) is a function from (time t) to (sigma at time t)
+        We don't provide r(t) and sigma(t) as arguments
+        Instead we provide their appropriate integrals as arguments
+        Specifically, we provide ir(t) and isig(t) as arguments (as follows):
+        ir(t) = \int_0^t r(u) du, so discount D_t = e^{- ir(t)}
+        isig(t) = \int 0^t sigma^2(u) du if lognormal == True
+        else \int_0^t sigma^2(u) e^{-\int_0^u 2 r(s) ds} du
     """
 
     def __init__(
@@ -36,14 +45,16 @@ class AmericanPricing:
         spot_price: float,
         payoff: Callable[[float, np.ndarray], float],
         expiry: float,
-        dispersion: Callable[[float, float], float],
-        ir: Callable[[float], float]
+        lognormal: bool,
+        ir: Callable[[float], float],
+        isig: Callable[[float], float]
     ) -> None:
         self.spot_price: float = spot_price
         self.payoff: Callable[[float, np.ndarray], float] = payoff
         self.expiry: float = expiry
-        self.dispersion: Callable[[float, float], float] = dispersion
+        self.lognormal: bool = lognormal
         self.ir: Callable[[float], float] = ir
+        self.isig: Callable[[float], float] = isig
 
     @memoize
     def get_all_paths(self, num_paths: int, num_dt: int) -> np.ndarray:
@@ -57,10 +68,12 @@ class AmericanPricing:
                     price,
                     t,
                     dt,
+                    self.lognormal,
                     self.ir,
-                    self.dispersion
+                    self.isig
                 )
-                price = np.random.normal(m, np.sqrt(v))
+                norm_draw = np.random.normal(m, np.sqrt(v))
+                price = np.exp(norm_draw) if self.lognormal else norm_draw
                 paths[i, t + 1] = price
         return paths
 
@@ -126,10 +139,12 @@ class AmericanPricing:
             price_arr[-1],
             t,
             delta_t,
+            self.lognormal,
             self.ir,
-            self.dispersion
+            self.isig
         )
-        next_price = np.random.normal(m, np.sqrt(v))
+        norm_draw = np.random.normal(m, np.sqrt(v))
+        next_price = np.exp(norm_draw) if self.lognormal else norm_draw
         price1 = np.append(price_arr, next_price)
         next_ind = (num_dt if action else ind) + 1
         return (next_ind, price1), reward
@@ -182,7 +197,7 @@ class AmericanPricing:
         # noinspection PyShadowingNames
         mdp_rep_obj = MDPRepForRLFA(
             state_action_func=sa_func,
-            gamma=OneMinusEpsilon,
+            gamma=ALMOSTONEGAMMA,
             terminal_state_func=terminal_state,
             state_reward_gen_func=sr_func,
             init_state_gen=init_s,
@@ -319,15 +334,17 @@ class AmericanPricing:
 
             for step in range(num_dt):
                 t = step * dt
-                disc = np.exp(self.ir(t + dt) - self.ir(t))
-                phi_s = np.array([f(step, paths[:(step + 1)]) for f in feature_funcs])
+                disc = np.exp(self.ir(t) - self.ir(t + dt))
+                phi_s = np.array([f(step, path[:(step + 1)]) for f in
+                                  feature_funcs])
                 next_payoff = self.payoff(t + dt, path[:(step + 2)])
-                exercise = next_payoff > params.dot(
-                    [f(step + 1, path[:(step + 2)]) for f in feature_funcs]
-                )
-                phi_sp = 0. if exercise else np.array(
-                    [f(step + 1, path[:(step + 2)]) for f in feature_funcs]
-                )
+                if step == num_dt - 1:
+                    next_phi = np.zeros(features)
+                else:
+                    next_phi = np.array([f(step + 1, path[:(step + 2)])
+                                         for f in feature_funcs])
+                exercise = next_payoff > params.dot(next_phi)
+                phi_sp = 0. if exercise else next_phi
                 reward = next_payoff if exercise else 0.
                 a_mat += np.outer(
                     phi_s,
@@ -336,25 +353,44 @@ class AmericanPricing:
                 b_vec += reward * disc * phi_s
 
             if (path_num + 1) % batch_size == 0:
-                params = [np.linalg.inv(a_mat).dot(b_vec)]
+                params = np.linalg.inv(a_mat).dot(b_vec)
+                # print(params)
                 a_mat = np.zeros((features, features))
                 b_vec = np.zeros(features)
 
-        all_paths = self.get_all_paths(num_paths, num_dt + 1)
+        paths = self.get_all_paths(num_paths, num_dt + 1)
         prices = np.zeros(num_paths)
 
-        for path_num, path in enumerate(all_paths):
+        for path_num, path in enumerate(paths):
             step = 0
             while step <= num_dt:
                 t = dt * step
                 price_seq = path[:(step + 1)]
+                # stock_price = path[step]
                 exercise_price = self.payoff(t, price_seq)
-                continue_price = params.dot([f(step, price_seq) for f in
-                                             feature_funcs])
+                if step == num_dt:
+                    continue_price = 0.
+                else:
+                    continue_price = params.dot([f(step, price_seq) for f in
+                                                 feature_funcs])
                 step += 1
                 if exercise_price > continue_price:
-                    prices[path_num] = np.exp(-self.ir(t) * exercise_price)
+                    prices[path_num] = np.exp(-self.ir(t)) * exercise_price
                     step = num_dt + 1
+
+                # if step == num_dt + 1:
+                #     print("Time = %.2f, Stock = %.3f, Exercise Price = %.3f, Continue Price = %.3f" %
+                #           (t, stock_price, exercise_price, continue_price))
+
+        # import matplotlib.pyplot as plt
+        # for step in range(num_dt):
+        #     t = dt * step
+        #     stprcs = np.arange(100.)
+        #     prsqs = [np.append(np.zeros(step), s) for s in stprcs]
+        #     cp = [params.dot([f(step, prsq) for f in feature_funcs]) for prsq in prsqs]
+        #     ep = [self.payoff(t, prsq) for prsq in prsqs]
+        #     plt.plot(stprcs, cp, 'r', stprcs, ep, 'b')
+        #     plt.show()
 
         return np.average(prices)
 
@@ -364,12 +400,13 @@ if __name__ == '__main__':
     spot_price_val = 80.0
     strike_val = 75.0
     expiry_val = 2.0
+    lognormal_val = True
     r_val = 0.02
     sigma_val = 0.25
     num_dt_val = 10
-    num_paths_val = 100000
+    num_paths_val = 2000000
     num_laguerre_val = 3
-    batch_size_val = 1000
+    batch_size_val = 10000
 
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
     ebsp = EuropeanBSPricing(
@@ -380,7 +417,6 @@ if __name__ == '__main__':
         r=r_val,
         sigma=sigma_val
     )
-    print("European Price = %.3f" % ebsp.option_price)
 
     def vanilla_american_payoff(_: float, x: np.ndarray) -> float:
         if is_call_val:
@@ -389,12 +425,14 @@ if __name__ == '__main__':
             ret = max(strike_val - x[-1], 0.)
         return ret
 
+    # noinspection PyShadowingNames
     amp = AmericanPricing(
         spot_price=spot_price_val,
         payoff=lambda t, x: vanilla_american_payoff(t, x),
         expiry=expiry_val,
-        dispersion=lambda _, x: sigma_val * x,
-        ir=lambda t: r_val * t
+        lognormal=lognormal_val,
+        ir=lambda t: r_val * t,
+        isig=lambda t, sigma_val=sigma_val: sigma_val * sigma_val * t
     )
 
     ident = np.eye(num_laguerre_val)
@@ -407,8 +445,8 @@ if __name__ == '__main__':
         i: int
     ) -> float:
         # noinspection PyTypeChecker
-        return np.exp(-x / (strike_val * 2)) * \
-               lagval(x / strike_val, ident[i])
+        xp = x / strike_val
+        return np.exp(-xp / 2) * lagval(xp, ident[i])
 
     ls_price = amp.get_ls_price(
         num_dt=num_dt_val,
@@ -418,13 +456,13 @@ if __name__ == '__main__':
                        range(num_laguerre_val)]
     )
 
-    print("Longstaff-Schwartz Price = %.3f" % ls_price)
-
     def rl_feature_func(
-        t: float,
+        ind: int,
         x: float,
         i: int
     ) -> float:
+        dt = expiry_val / num_dt_val
+        t = ind * dt
         if i == 0:
             ret = 1.
         elif i < num_laguerre_val + 1:
@@ -447,3 +485,5 @@ if __name__ == '__main__':
     )
 
     print("LSPI Price = %.3f" % lspi_price)
+    print("Longstaff-Schwartz Price = %.3f" % ls_price)
+    print("European Price = %.3f" % ebsp.option_price)

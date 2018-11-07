@@ -4,6 +4,9 @@ from algorithms.td_algo_enum import TDAlgorithm
 from numpy.polynomial.laguerre import lagval
 from examples.american_pricing.american_pricing import AmericanPricing
 from examples.american_pricing.grid_pricing import GridPricing
+from src.examples.american_pricing.num_utils import get_future_price_mean_var
+
+LARGENUM = 1e8
 
 
 # noinspection PyShadowingNames
@@ -12,6 +15,7 @@ def get_vanilla_american_price(
     spot_price: float,
     strike: float,
     expiry: float,
+    lognormal: bool,
     r: float,
     sigma: float,
     num_dt: int,
@@ -21,32 +25,40 @@ def get_vanilla_american_price(
 ) -> Mapping[str, float]:
     opt_payoff = lambda _, x, is_call=is_call, strike=strike:\
         max(x - strike, 0.) if is_call else max(strike - x, 0.)
-    dispersion = lambda _, x, sigma=sigma: sigma * x
     # noinspection PyShadowingNames
     ir_func = lambda t, r=r: r * t
+    isig_func = lambda t, sigma=sigma: sigma * sigma * t
 
-    x_lim = 4. * sigma * spot_price * np.sqrt(expiry)
     num_dx = 200
-    dx = x_lim / num_dx
-
+    expiry_mean, expiry_var = get_future_price_mean_var(
+        spot_price,
+        0.,
+        expiry,
+        lognormal,
+        ir_func,
+        isig_func
+    )
     grid_price = GridPricing(
         spot_price=spot_price,
         payoff=opt_payoff,
         expiry=expiry,
-        dispersion=dispersion,
-        ir=ir_func
+        lognormal=lognormal,
+        ir=ir_func,
+        isig=isig_func
     ).get_price(
         num_dt=num_dt,
-        dx=dx,
-        num_dx=num_dx
+        num_dx=num_dx,
+        center=expiry_mean,
+        width=np.sqrt(expiry_var) * 4
     )
 
     gp = AmericanPricing(
         spot_price=spot_price,
         payoff=(lambda t, x, opt_payoff=opt_payoff: opt_payoff(t, x[-1])),
         expiry=expiry,
-        dispersion=dispersion,
-        ir=ir_func
+        lognormal=lognormal,
+        ir=ir_func,
+        isig=isig_func
     )
     ident = np.eye(num_laguerre)
 
@@ -58,8 +70,8 @@ def get_vanilla_american_price(
         strike=strike
     ) -> float:
         # noinspection PyTypeChecker
-        return np.exp(-x / (strike * 2)) * \
-               lagval(x / strike, ident[i])
+        xp = x / strike
+        return np.exp(-xp / 2) * lagval(xp, ident[i])
 
     ls_price = gp.get_ls_price(
         num_dt=num_dt,
@@ -80,6 +92,7 @@ def get_vanilla_american_price(
         expiry: float = expiry
     ) -> float:
         dt = expiry / num_dt
+        t = ind * dt
         if i < num_laguerre + 4:
             if ind < num_dt and not a:
                 if i == 0:
@@ -87,12 +100,21 @@ def get_vanilla_american_price(
                 elif i < num_laguerre + 1:
                     ret = laguerre_feature_func(x, i - 1)
                 elif i == num_laguerre + 1:
-                    ret = np.sin(-ind * np.pi / (2. * num_dt) + np.pi / 2.)
+                    if t >= expiry_val:
+                        ret = 0.
+                    else:
+                        ret = np.sin(-t * np.pi / (2. * expiry) + np.pi / 2.)
                 elif i == num_laguerre + 2:
-                    ret = np.log(dt * (num_dt - ind))
+                    if t >= expiry_val:
+                        ret = -LARGENUM
+                    else:
+                        ret = np.log(expiry - t)
                 else:
-                    rat = float(ind) / num_dt
-                    ret = rat * rat
+                    if t >= expiry_val:
+                        ret = 1.
+                    else:
+                        rat = t / expiry
+                        ret = rat * rat
             else:
                 ret = 0.
         else:
@@ -139,6 +161,7 @@ if __name__ == '__main__':
     spot_price_val = 80.0
     strike_val = 75.0
     expiry_val = 2.0
+    lognormal_val = True
     r_val = 0.02
     sigma_val = 0.25
     num_dt_val = 10
@@ -166,6 +189,7 @@ if __name__ == '__main__':
         spot_price=spot_price_val,
         strike=strike_val,
         expiry=expiry_val,
+        lognormal=lognormal_val,
         r=r_val,
         sigma=sigma_val,
         num_dt=num_dt_val,
