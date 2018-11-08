@@ -62,7 +62,7 @@ class GridPricing:
         For the case of lognormal == False, it should be Mean[x_{expiry}].
         :param width: represents the width of the state space grid. For the
         case of lognormal == True, it should be a multiple of
-        Stdev[log(x_{expiry})]. For the caswe of lognormal == True, it
+        Stdev[log(x_{expiry})]. For the case of lognormal == True, it
         should be a multiple of Stdev[log(x_{expiry})].
         :return: the price of the American option (this is the discounted
         expected payoff at time 0 at current stock price.
@@ -79,9 +79,6 @@ class GridPricing:
             knots, coeffs, order = splrep(prices, res[i + 1, :], k=3)
             spline_func = BSpline(knots, coeffs, order)
             disc = np.exp(self.ir(t) - self.ir(t + dt))
-            sp = []
-            ep = []
-            cp = []
             for j in range(x_pts):
                 m, v = get_future_price_mean_var(
                     prices[j],

@@ -9,6 +9,7 @@ from algorithms.rl_func_approx.lspi import LSPI
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
 from processes.mdp_rep_for_rl_fa import MDPRepForRLFA
 from algorithms.func_approx_spec import FuncApproxSpec
+from examples.american_pricing.grid_pricing import GridPricing
 from func_approx.dnn_spec import DNNSpec
 from utils.gen_utils import memoize
 from random import choice
@@ -316,57 +317,21 @@ class AmericanPricing:
 
         return np.average(prices)
 
-    def get_lspi_price(
+    def get_price_from_paths_and_params(
         self,
+        paths: np.ndarray,
+        params: np.ndarray,
         num_dt: int,
-        num_paths: int,
-        feature_funcs: Sequence[Callable[[int, np.ndarray], float]],
-        batch_size: int
+        feature_funcs: Sequence[Callable[[int, np.ndarray], float]]
     ) -> float:
-        features = len(feature_funcs)
-        a_mat = np.zeros((features, features))
-        b_vec = np.zeros(features)
-        params = np.zeros(features)
-        paths = self.get_all_paths(num_paths, num_dt + 1)
-        dt = self.expiry / num_dt
-
-        for path_num, path in enumerate(paths):
-
-            for step in range(num_dt):
-                t = step * dt
-                disc = np.exp(self.ir(t) - self.ir(t + dt))
-                phi_s = np.array([f(step, path[:(step + 1)]) for f in
-                                  feature_funcs])
-                next_payoff = self.payoff(t + dt, path[:(step + 2)])
-                if step == num_dt - 1:
-                    next_phi = np.zeros(features)
-                else:
-                    next_phi = np.array([f(step + 1, path[:(step + 2)])
-                                         for f in feature_funcs])
-                exercise = next_payoff > params.dot(next_phi)
-                phi_sp = 0. if exercise else next_phi
-                reward = next_payoff if exercise else 0.
-                a_mat += np.outer(
-                    phi_s,
-                    phi_s - phi_sp * disc
-                )
-                b_vec += reward * disc * phi_s
-
-            if (path_num + 1) % batch_size == 0:
-                params = np.linalg.inv(a_mat).dot(b_vec)
-                # print(params)
-                a_mat = np.zeros((features, features))
-                b_vec = np.zeros(features)
-
-        paths = self.get_all_paths(num_paths, num_dt + 1)
+        num_paths = paths.shape[0]
         prices = np.zeros(num_paths)
-
+        dt = self.expiry / num_dt
         for path_num, path in enumerate(paths):
             step = 0
             while step <= num_dt:
                 t = dt * step
                 price_seq = path[:(step + 1)]
-                # stock_price = path[step]
                 exercise_price = self.payoff(t, price_seq)
                 if step == num_dt:
                     continue_price = 0.
@@ -394,19 +359,164 @@ class AmericanPricing:
 
         return np.average(prices)
 
+    def get_lspi_price(
+        self,
+        num_dt: int,
+        num_paths: int,
+        feature_funcs: Sequence[Callable[[int, np.ndarray], float]],
+        batch_size: int,
+        model_prob_draws: int
+    ) -> float:
+        features = len(feature_funcs)
+        a_mat = np.zeros((features, features))
+        b_vec = np.zeros(features)
+        params = np.zeros(features)
+        paths = self.get_all_paths(num_paths, num_dt + 1)
+        dt = self.expiry / num_dt
+
+        for path_num, path in enumerate(paths):
+
+            for step in range(num_dt):
+                t = step * dt
+                disc = np.exp(self.ir(t) - self.ir(t + dt))
+                phi_s = np.array([f(step, path[:(step + 1)]) for f in
+                                  feature_funcs])
+                if model_prob_draws > 1:
+                    m, v = get_future_price_mean_var(
+                        path[step],
+                        t,
+                        dt,
+                        self.lognormal,
+                        self.ir,
+                        self.isig
+                    )
+                    norm_draws = np.random.normal(m, np.sqrt(v), model_prob_draws)
+                    local_paths = [np.append(
+                        paths[:(step + 1)],
+                        nd
+                    ) for nd in (np.exp(norm_draws) if self.lognormal else norm_draws)]
+                else:
+                    local_paths = [path[:(step + 2)]]
+
+                all_phi_sp = np.zeros((len(local_paths), features))
+                all_rewards = np.zeros(len(local_paths))
+
+                for i, local_path in enumerate(local_paths):
+                    next_payoff = self.payoff(t + dt, local_path)
+                    if step == num_dt - 1:
+                        next_phi = np.zeros(features)
+                    else:
+                        next_phi = np.array([f(step + 1, local_path)
+                                             for f in feature_funcs])
+                    exercise = next_payoff > params.dot(next_phi)
+                    if exercise:
+                        all_rewards[i] = next_payoff
+                    else:
+                        all_phi_sp[i, :] = next_phi
+
+                phi_sp = np.mean(all_phi_sp, axis=0)
+                reward = np.mean(all_rewards)
+
+                a_mat += np.outer(
+                    phi_s,
+                    phi_s - phi_sp * disc
+                )
+                b_vec += reward * disc * phi_s
+
+            if (path_num + 1) % batch_size == 0:
+                params = np.linalg.inv(a_mat).dot(b_vec)
+                # print(params)
+                a_mat = np.zeros((features, features))
+                b_vec = np.zeros(features)
+
+        return self.get_price_from_paths_and_params(
+            paths,
+            params,
+            num_dt,
+            feature_funcs
+        )
+
+    def get_fqi_price(
+        self,
+        num_dt: int,
+        num_paths: int,
+        feature_funcs: Sequence[Callable[[int, np.ndarray], float]],
+        batch_size: int,
+        model_prob_draws: int
+    ) -> float:
+        features = len(feature_funcs)
+        a_mat = np.zeros((features, features))
+        b_vec = np.zeros(features)
+        params = np.zeros(features)
+        paths = self.get_all_paths(num_paths, num_dt + 1)
+        dt = self.expiry / num_dt
+
+        for path_num, path in enumerate(paths):
+
+            for step in range(num_dt):
+                t = step * dt
+                disc = np.exp(self.ir(t) - self.ir(t + dt))
+                phi_s = np.array([f(step, path[:(step + 1)]) for f in
+                                  feature_funcs])
+                if model_prob_draws > 1:
+                    m, v = get_future_price_mean_var(
+                        path[step],
+                        t,
+                        dt,
+                        self.lognormal,
+                        self.ir,
+                        self.isig
+                    )
+                    norm_draws = np.random.normal(m, np.sqrt(v), model_prob_draws)
+                    local_paths = [np.append(
+                        paths[:(step + 1)],
+                        nd
+                    ) for nd in (np.exp(norm_draws) if self.lognormal else norm_draws)]
+                else:
+                    local_paths = [path[:(step + 2)]]
+
+                all_max_val = np.zeros(len(local_paths))
+                for i, local_path in enumerate(local_paths):
+                    next_payoff = self.payoff(t + dt, local_path)
+                    if step == num_dt - 1:
+                        next_phi = np.zeros(features)
+                    else:
+                        next_phi = np.array([f(step + 1, local_path)
+                                             for f in feature_funcs])
+                    all_max_val[i] = max(next_payoff, params.dot(next_phi))
+
+                max_val = np.mean(all_max_val)
+
+                a_mat += np.outer(phi_s, phi_s)
+                b_vec += phi_s * disc * max_val
+
+            if (path_num + 1) % batch_size == 0:
+                params = np.linalg.inv(a_mat).dot(b_vec)
+                # print(params)
+                a_mat = np.zeros((features, features))
+                b_vec = np.zeros(features)
+
+        return self.get_price_from_paths_and_params(
+            paths,
+            params,
+            num_dt,
+            feature_funcs
+        )
+
 
 if __name__ == '__main__':
     is_call_val = False
     spot_price_val = 80.0
-    strike_val = 75.0
-    expiry_val = 2.0
+    strike_val = 80.0
+    expiry_val = 0.5
     lognormal_val = True
-    r_val = 0.02
+    r_val = 0.05
     sigma_val = 0.25
     num_dt_val = 10
-    num_paths_val = 2000000
+    num_paths_val = 200000
     num_laguerre_val = 3
     batch_size_val = 10000
+    model_prob_draws_val = 10
 
     from examples.american_pricing.bs_pricing import EuropeanBSPricing
     ebsp = EuropeanBSPricing(
@@ -417,6 +527,12 @@ if __name__ == '__main__':
         r=r_val,
         sigma=sigma_val
     )
+    print("European Price = %.3f" % ebsp.option_price)
+
+    # noinspection PyShadowingNames
+    ir_func = lambda t, r_val=r_val: r_val * t
+    # noinspection PyShadowingNames
+    isig_func = lambda t, sigma_val=sigma_val: sigma_val * sigma_val * t
 
     def vanilla_american_payoff(_: float, x: np.ndarray) -> float:
         if is_call_val:
@@ -431,8 +547,8 @@ if __name__ == '__main__':
         payoff=lambda t, x: vanilla_american_payoff(t, x),
         expiry=expiry_val,
         lognormal=lognormal_val,
-        ir=lambda t: r_val * t,
-        isig=lambda t, sigma_val=sigma_val: sigma_val * sigma_val * t
+        ir=ir_func,
+        isig=isig_func
     )
 
     ident = np.eye(num_laguerre_val)
@@ -447,14 +563,6 @@ if __name__ == '__main__':
         # noinspection PyTypeChecker
         xp = x / strike_val
         return np.exp(-xp / 2) * lagval(xp, ident[i])
-
-    ls_price = amp.get_ls_price(
-        num_dt=num_dt_val,
-        num_paths=num_paths_val,
-        feature_funcs=[lambda _, x: 1.] +
-                      [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
-                       range(num_laguerre_val)]
-    )
 
     def rl_feature_func(
         ind: int,
@@ -481,9 +589,50 @@ if __name__ == '__main__':
         num_paths=num_paths_val,
         feature_funcs=[lambda t, x, i=i: rl_feature_func(t, x[-1], i) for i in
                        range(num_laguerre_val + 4)],
-        batch_size=batch_size_val
+        batch_size=batch_size_val,
+        model_prob_draws=model_prob_draws_val
+    )
+    print("LSPI Price = %.3f" % lspi_price)
+    fqi_price = amp.get_fqi_price(
+        num_dt=num_dt_val,
+        num_paths=num_paths_val,
+        feature_funcs=[lambda t, x, i=i: rl_feature_func(t, x[-1], i) for i in
+                       range(num_laguerre_val + 4)],
+        batch_size=batch_size_val,
+        model_prob_draws=model_prob_draws_val
+    )
+    print("FQI Price = %.3f" % fqi_price)
+    ls_price = amp.get_ls_price(
+        num_dt=num_dt_val,
+        num_paths=num_paths_val,
+        feature_funcs=[lambda _, x: 1.] +
+                      [(lambda _, x, i=i: laguerre_feature_func(x[-1], i)) for i in
+                       range(num_laguerre_val)]
+    )
+    print("Longstaff-Schwartz Price = %.3f" % ls_price)
+
+    expiry_mean, expiry_var = get_future_price_mean_var(
+        spot_price_val,
+        0.,
+        expiry_val,
+        lognormal_val,
+        ir_func,
+        isig_func
     )
 
-    print("LSPI Price = %.3f" % lspi_price)
-    print("Longstaff-Schwartz Price = %.3f" % ls_price)
+    grid_price = GridPricing(
+        spot_price=spot_price_val,
+        payoff=lambda _, x: (1.0 if is_call_val else -1.) * (x - strike_val),
+        expiry=expiry_val,
+        lognormal=lognormal_val,
+        ir=ir_func,
+        isig=isig_func
+    ).get_price(
+        num_dt=num_dt_val,
+        num_dx=100,
+        center=expiry_mean,
+        width=np.sqrt(expiry_var) * 4.
+    )
+
+    print("Grid Price = %.3f" % grid_price)
     print("European Price = %.3f" % ebsp.option_price)
