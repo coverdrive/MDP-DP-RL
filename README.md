@@ -5,9 +5,10 @@ from scratch (i.e., with no use of standard libraries, except for basic numpy an
  "develop from scratch" goal was motivated by educational purposes - students learning this topic
  can understand the concepts throroughly only when they develop and work with code developed from
  scratch. I teach courses on this topic to a variety of student backgrounds, and each such course
- is big on precise programming implementations of the techniques/algorithms. In particular, I plan
- to use this codebase to assist with Stanford CME 241: Reinforcement Learning for Stochastic
- Control Problems in Finance (a course I am teaching at Stanford during Winter 2019).
+ is big on precise programming implementations of the techniques/algorithms. In particular, I will
+ use this codebase to assist with Stanford CME 241: Reinforcement Learning for Stochastic
+ Control Problems in Finance (http://cme241.stanford.edu).
+ 
  Any feedback on code readability, performance and bugs will be greatly appreciated as the code
  is still fairly raw and untested in various parts (started working on this code in August 2018,
  and have mainly been in code-growth mode so far).
@@ -66,12 +67,8 @@ code that focuses on the concept (versus the complication of eligibility traces)
 same reason I implemented Tabular (Tabular is a special case of Linear Function Approximation where the features
 are indicator functions, one for each of the states/state-action pairs). Note the deep object-oriented inheritance
 hiereracy - rooted at the abstract base class OptBase. Note also that a lot of heavy lifting happens in the
-module helper_funcs.py.
+module helper_funcs.py. A couple of semi-advanced algorithms such as LSTD/LSPI and Policy Gradient are also implemented here (LSPI provides batch-efficiency and Policy Gradient is valuable when the action space is large/continuous).
 
-examples: A few common examples of problems that seem ripe for RL, eg: Windy Grid, Inventory Control.
+examples: Implemented a few common examples of problems that are ideal for RL: Windy Grid, Inventory Control. For http://cme241.stanford.edu, I have also implemented initial versions of two important and interesting finance problems that can be solved by modeling them as MDPs and solving with DP/RL: 1) Optimal Asset-Allocation and Consumption when managing a portfolio of risky assets and 1 riskless asset, 2) Optimal Exercise of American Options when the option-payoff is either path-dependent or if the state space of the option is high-dimensional.
 
 utils: Some generic utility functions to transform data structures.
-
-----------------------
-Coming soon are LSTD and Policy Gradient Algorithms (the latter is motivated by the inability of the currently
-implemented algorithms to handle continuous action spaces, eg: for the Portfolio Management example).
