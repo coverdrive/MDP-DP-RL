@@ -100,21 +100,12 @@ def get_vanilla_american_price(
                 elif i < num_laguerre + 1:
                     ret = laguerre_feature_func(x, i - 1)
                 elif i == num_laguerre + 1:
-                    if t >= expiry_val:
-                        ret = 0.
-                    else:
-                        ret = np.sin(-t * np.pi / (2. * expiry) + np.pi / 2.)
+                    ret = np.sin(-t * np.pi / (2. * expiry) + np.pi / 2.)
                 elif i == num_laguerre + 2:
-                    if t >= expiry_val:
-                        ret = -LARGENUM
-                    else:
-                        ret = np.log(expiry - t)
+                    ret = np.log(expiry - t)
                 else:
-                    if t >= expiry_val:
-                        ret = 1.
-                    else:
-                        rat = t / expiry
-                        ret = rat * rat
+                    rat = t / expiry
+                    ret = rat * rat
             else:
                 ret = 0.
         else:
