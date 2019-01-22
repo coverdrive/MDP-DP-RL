@@ -180,6 +180,7 @@ if __name__ == '__main__':
     this_learning_rate_decay = 1e6
     this_lambd = 0.8
     this_num_episodes = 1000
+    this_batch_size = 10
     this_max_steps = 1000
     this_td_offline = True
     state_ffs = FuncApproxBase.get_indicator_feature_funcs(mdp_ref_obj.all_states)
@@ -213,6 +214,7 @@ if __name__ == '__main__':
         learning_rate_decay=this_learning_rate_decay,
         lambd=this_lambd,
         num_episodes=this_num_episodes,
+        batch_size=this_batch_size,
         max_steps=this_max_steps,
         tdl_fa_offline=this_td_offline,
         fa_spec=this_fa_spec
