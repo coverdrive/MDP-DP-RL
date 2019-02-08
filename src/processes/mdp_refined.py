@@ -95,28 +95,30 @@ class MDPRefined(MDP):
 
 
 if __name__ == '__main__':
-    data = {
-        1: {
-            'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
-            'b': {2: (0.3, -0.5), 3: (0.7, 2.6)},
-            'c': {1: (0.2, 4.8), 2: (0.4, -4.9), 3: (0.4, 0.0)}
-        },
-        2: {
-            'a': {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
-            'c': {1: (0.2, 4.8), 2: (0.4, 9.2), 3: (0.4, -8.2)}
-        },
-        3: {
-            'a': {3: (1.0, 0.0)},
-            'b': {3: (1.0, 0.0)}
-        }
-    }
-    mdp_refined_obj = MDPRefined(data, 0.95)
-    print(mdp_refined_obj.all_states)
-    print(mdp_refined_obj.transitions)
-    print(mdp_refined_obj.rewards)
-    print(mdp_refined_obj.rewards_refined)
-    terminal = mdp_refined_obj.get_terminal_states()
-    print(terminal)
+    # data = {
+    #     1: {
+    #         'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
+    #         'b': {2: (0.3, -0.5), 3: (0.7, 2.6)},
+    #         'c': {1: (0.2, 4.8), 2: (0.4, -4.9), 3: (0.4, 0.0)}
+    #     },
+    #     2: {
+    #         'a': {1: (0.3, 9.8), 2: (0.6, 6.7), 3: (0.1, 1.8)},
+    #         'c': {1: (0.2, 4.8), 2: (0.4, 9.2), 3: (0.4, -8.2)}
+    #     },
+    #     3: {
+    #         'a': {3: (1.0, 0.0)},
+    #         'b': {3: (1.0, 0.0)}
+    #     }
+    # }
+    # mdp_refined_obj = MDPRefined(data, 0.95)
+    # print(mdp_refined_obj.all_states)
+    # print(mdp_refined_obj.transitions)
+    # print(mdp_refined_obj.rewards)
+    # print(mdp_refined_obj.rewards_refined)
+    # terminal = mdp_refined_obj.get_terminal_states()
+    # print(terminal)
+
+    print("This is MDPRefined")
     mdp_refined_data = {
         1: {
             'a': {1: (0.3, 9.2), 2: (0.6, 4.5), 3: (0.1, 5.0)},
@@ -132,13 +134,44 @@ if __name__ == '__main__':
             'b': {3: (1.0, 0.0)}
         }
     }
-    mdp2_obj = MDPRefined(mdp_refined_data, 0.97)
+    mdp_refined_obj = MDPRefined(mdp_refined_data, 0.97)
+    print("Transitions")
+    print(mdp_refined_obj.transitions)
+    print("Rewards Refined")
+    print(mdp_refined_obj.rewards_refined)
+
+    print("----------------")
+    print("This is the Policy")
     policy_data = {
         1: {'a': 0.4, 'b': 0.6},
         2: {'a': 0.7, 'c': 0.3},
         3: {'b': 1.0}
     }
     pol_obj = Policy(policy_data)
-    mrp_refined_obj = mdp2_obj.get_mrp_refined(pol_obj)
+    print(pol_obj.policy_data)
+
+    print("----------------")
+    print("This is MRPRefined")
+    mrp_refined_obj = mdp_refined_obj.get_mrp_refined(pol_obj)
+    print("Transitions")
     print(mrp_refined_obj.transitions)
+    print("Rewards Refined")
     print(mrp_refined_obj.rewards_refined)
+
+    print("-----------------")
+    print("This is MDP")
+    print("Rewards")
+    print(mdp_refined_obj.rewards)
+
+    print("-----------------")
+    print("This is MRP from MDP")
+    mrp_obj1 = mdp_refined_obj.get_mrp(pol_obj)
+    print("Rewards")
+    print(mrp_obj1.rewards)
+
+    print("---------------")
+    print("This is MRP from MRPRefined")
+    print("Rewards")
+    print(mrp_refined_obj.rewards)
+
+
