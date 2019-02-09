@@ -17,9 +17,9 @@ for t in range(T - 1, -1, -1):
                 if d > 1:
                     mult *= d
                 prob = (np.exp(-ld) * ld ** d) / mult
-                vals[i] += prob * (d * p + v[t, s - d])
+                vals[i] += prob * (d * p + v[t + 1, s - d])
                 prob_sum += prob
-            vals[i] += (1. - prob_sum) * (s * p + v[t, s])
+            vals[i] += (1. - prob_sum) * (s * p + v[t + 1, 0])
         v[t, s] = np.max(vals)
         pi[t, s] = el[int(np.argmax(vals))][0]
 print(pi)
