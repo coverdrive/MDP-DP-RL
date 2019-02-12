@@ -1,18 +1,24 @@
 from typing import Tuple
-from utils.gen_utils import zip_dict_of_tuple
-from processes.mdp import MDP
+
 import numpy as np
-from processes.policy import Policy
-from processes.mp_funcs import mdp_rep_to_mrp_rep1
-from processes.mrp_refined import MRPRefined
+
+from processes.mdp import MDP
+from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
+from processes.mdp_rep_for_rl_pg import MDPRepForRLPG
+from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
+from processes.mp_funcs import flatten_sasf_dict
+from processes.mp_funcs import flatten_ssf_dict
 from processes.mp_funcs import get_rv_gen_func
 from processes.mp_funcs import get_rv_gen_func_single
-from processes.mdp_rep_for_rl_tabular import MDPRepForRLTabular
-from processes.mdp_rep_for_rl_pg import MDPRepForRLPG
-from processes.mdp_rep_for_adp_pg import MDPRepForADPPG
+from processes.mp_funcs import get_sampling_func_from_prob_dict
 from processes.mp_funcs import get_state_reward_gen_dict
 from processes.mp_funcs import get_state_reward_gen_func
-from processes.mp_funcs import get_sampling_func_from_prob_dict
+from processes.mp_funcs import mdp_rep_to_mrp_rep1
+from processes.mp_funcs import unflatten_sasf_dict
+from processes.mp_funcs import unflatten_ssf_dict
+from processes.mrp_refined import MRPRefined
+from processes.policy import Policy
+from utils.gen_utils import zip_dict_of_tuple, merge_dicts
 from utils.standard_typevars import SASf, SAf, SASTff
 
 
@@ -42,13 +48,24 @@ class MDPRefined(MDP):
         return d1, d2, d3
 
     def get_mrp_refined(self, pol: Policy) -> MRPRefined:
+        flat_transitions = flatten_sasf_dict(self.transitions)
+        flat_rewards_refined = flatten_sasf_dict(self.rewards_refined)
+
+        flat_exp_rewards = merge_dicts(flat_rewards_refined, flat_transitions, lambda x, y: x * y)
+        exp_rewards = unflatten_sasf_dict(flat_exp_rewards)
+
         tr = mdp_rep_to_mrp_rep1(self.transitions, pol.policy_data)
         rew_ref = mdp_rep_to_mrp_rep1(
-            self.rewards_refined,
+            exp_rewards,
             pol.policy_data
         )
+        flat_tr = flatten_ssf_dict(tr)
+        flat_rew_ref = flatten_ssf_dict(rew_ref)
+        flat_norm_rewards = merge_dicts(flat_rew_ref, flat_tr, lambda x, y: x / y)
+        norm_rewards = unflatten_ssf_dict(flat_norm_rewards)
+
         return MRPRefined(
-            {s: {s1: (v1, rew_ref[s][s1]) for s1, v1 in v.items()}
+            {s: {s1: (v1, norm_rewards[s][s1]) for s1, v1 in v.items()}
              for s, v in tr.items()},
             self.gamma
         )

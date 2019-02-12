@@ -1,5 +1,5 @@
 from typing import Mapping, Set, Tuple, Sequence, Any, Callable
-from utils.gen_utils import memoize, is_approx_eq, sum_dicts
+from utils.gen_utils import memoize, is_approx_eq, sum_dicts, FlattenedDict
 import numpy as np
 from random import choices
 from operator import itemgetter
@@ -193,6 +193,39 @@ def get_sampling_func_from_prob_dict(prob_dict: Mapping[A, float])\
         return choices(keys, vals, k=n)
 
     return sampling_func
+
+
+def flatten_sasf_dict(sasf: SASf) -> FlattenedDict:
+    return [((s, a, s1), f)
+            for s, asf in sasf.items()
+            for a, sf in asf.items()
+            for s1, f in sf.items()]
+
+
+def flatten_ssf_dict(ssf: SSf) -> FlattenedDict:
+    return [((s, s1), f)
+            for s, sf in ssf.items()
+            for s1, f in sf.items()]
+
+
+def unflatten_sasf_dict(q: FlattenedDict) -> SASf:
+    dsasf = {}
+    for (sas, f) in q:
+        dasf = dsasf.get(sas[0], {})
+        dsf = dasf.get(sas[1], {})
+        dsf[sas[2]] = f
+        dasf[sas[1]] = dsf
+        dsasf[sas[0]] = dasf
+    return dsasf
+
+
+def unflatten_ssf_dict(q: FlattenedDict) -> SSf:
+    dssf = {}
+    for (ss, f) in q:
+        dsf = dssf.get(ss[0], {})
+        dsf[ss[1]] = f
+        dssf[ss[0]] = dsf
+    return dssf
 
 
 if __name__ == '__main__':
