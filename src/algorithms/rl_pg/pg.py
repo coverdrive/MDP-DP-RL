@@ -216,10 +216,9 @@ class PolicyGradient(OptBase):
                 init_state = mo.init_state_gen_func()
                 this_path = self.get_path(init_state)
 
-                for i, (s, pp, a, r) in enumerate(this_path[::-1]):
-                    i1 = len(this_path) - i - 1
-                    fut_return = mo.gamma * self.vf_fa.get_func_eval(this_path[i1 + 1][0])\
-                        if i > 0 else 0.
+                for i, (s, pp, a, r) in enumerate(this_path):
+                    fut_return = mo.gamma * self.vf_fa.get_func_eval(this_path[i + 1][0])\
+                        if i < len(this_path) - 1 else 0.
                     delta = r + fut_return - self.vf_fa.get_func_eval(s)
                     states.append(s)
                     deltas.append(delta)
