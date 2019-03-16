@@ -1,5 +1,7 @@
 import functools
-from typing import Mapping, TypeVar, Tuple, Sequence
+from typing import Mapping, TypeVar, Tuple, Sequence, List
+
+FlattenedDict = List[Tuple[Tuple, float]]
 
 X = TypeVar('X')
 Y = TypeVar('Y')
@@ -78,4 +80,14 @@ def transpose_list_of_lists(l: Sequence[Sequence[X]]) -> Sequence[Sequence[X]]:
     """
     max_len = max(len(lin) for lin in l)
     return [[lin[i] for lin in l if i < len(lin)] for i in range(max_len)]
+
+
+def merge_dicts(d1: FlattenedDict, d2: FlattenedDict, operation):
+    merged = d1 + d2
+    from itertools import groupby
+    from operator import itemgetter
+    from functools import reduce
+    sortd = sorted(merged, key=itemgetter(0))
+    grouped = groupby(sortd, key=itemgetter(0))
+    return [(key, reduce(operation, [x for _, x in group])) for key, group in grouped]
 
