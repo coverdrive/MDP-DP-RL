@@ -185,7 +185,6 @@ class TDLambda(RLFuncApproxBase):
                     self.epsilon_func(episodes - 1)
                 )
 
-
         return lambda st: lambda act, st=st: self.qvf_fa.get_func_eval((st, act))
 
 
@@ -218,6 +217,7 @@ if __name__ == '__main__':
     learning_rate_val = 0.1
     lambda_val = 0.7
     episodes_limit = 10000
+    batch_size_val = 20
     max_steps_val = 1000
     offline_val = True
     state_ff = [lambda s: float(s)]
@@ -242,6 +242,7 @@ if __name__ == '__main__':
         epsilon_half_life_val,
         lambda_val,
         episodes_limit,
+        batch_size_val,
         max_steps_val,
         fa_spec_val,
         offline_val

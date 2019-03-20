@@ -212,6 +212,7 @@ if __name__ == '__main__':
     learning_rate_decay_val = 1e6
     lambda_val = 0.7
     episodes_limit = 10000
+    batch_size_val = 20
     max_steps_val = 1000
     state_ff = [lambda s: float(s)]
     sa_ff = [
@@ -229,6 +230,7 @@ if __name__ == '__main__':
         epsilon_half_life=epsilon_half_life_val,
         lambd=lambda_val,
         num_episodes=episodes_limit,
+        batch_size=batch_size_val,
         max_steps=max_steps_val,
         state_feature_funcs=state_ff,
         sa_feature_funcs=sa_ff,
