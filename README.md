@@ -5,8 +5,8 @@ from scratch (i.e., with no use of standard libraries, except for basic numpy an
  "develop from scratch" goal was motivated by educational purposes - students learning this topic
  can understand the concepts throroughly only when they develop and work with code developed from
  scratch. I teach courses on this topic to a variety of student backgrounds, and each such course
- is big on precise programming implementations of the techniques/algorithms. In particular, I will
- use this codebase to assist with Stanford CME 241: Reinforcement Learning for Stochastic
+ is big on precise programming implementations of the techniques/algorithms. In particular, I
+ use this codebase when I teach Stanford CME 241: Reinforcement Learning for Stochastic
  Control Problems in Finance (http://cme241.stanford.edu).
  
  Any feedback on code readability, performance and bugs will be greatly appreciated as the code
@@ -72,3 +72,8 @@ module helper_funcs.py. A couple of semi-advanced algorithms such as LSTD/LSPI a
 examples: Implemented a few common examples of problems that are ideal for RL: Windy Grid, Inventory Control. For http://cme241.stanford.edu, I have also implemented initial versions of two important and interesting finance problems that can be solved by modeling them as MDPs and solving with DP/RL: 1) Optimal Asset-Allocation and Consumption when managing a portfolio of risky assets and 1 riskless asset, 2) Optimal Exercise of American Options when the option-payoff is either path-dependent or if the state space of the option is high-dimensional.
 
 utils: Some generic utility functions to transform data structures.
+
+TODO:
+
+1) Implement finite horizon (exact) DP backward induction algorithm. And then do ADP (VF-approximation) backward induction algorithm.
+2) Implement finite horizon Adaptive MultiStage Sampling (AMS) algorithm (https://projecteuclid.org/euclid.cis/1184963898) for exact DP - this is essentially MCTS. And then do the AMS algorithm with function approximation and rollout simulations.
