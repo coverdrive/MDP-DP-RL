@@ -3,7 +3,6 @@ from utils.gen_utils import is_approx_eq
 from utils.generic_typevars import S, A
 from utils.standard_typevars import SASTff
 from operator import itemgetter
-from scipy.stats import poisson
 
 
 class BackwardDP(Generic[S, A]):
@@ -62,30 +61,61 @@ class BackwardDP(Generic[S, A]):
 
 
 if __name__ == '__main__':
-    T: int = 10  # time steps
-    M: int = 200  # initial inventory
+    from scipy.stats import poisson
+    T: int = 50  # time steps
+    M: int = 10  # initial inventory
     # the following are (price, poisson mean) pairs, i.e., elasticity
     el: Sequence[Tuple[float, float]] = [
-        (10.0, 10.0), (9.0, 16.0), (8.0, 20.0),
-        (7.0, 23.0), (6.0, 25.0), (5.0, 26.0)
+        (10.0, 0.1), (9.0, 0.16), (8.0, 0.22),
+        (7.0, 0.28), (6.0, 0.38), (5.0, 0.5)
     ]
-    rvs: Sequence = [poisson(l) for _, l in el]
+    rvs = [(p, poisson(l)) for p, l in el]
 
     tr_rew_dict = {
         s: {
             p: {
                 s - d: (
-                    rvs[i].pmf(d) if d < s else 1. - rvs[i].cdf(s - 1),
+                    rv.pmf(d) if d < s else 1. - rv.cdf(s - 1),
                     d * p
                 ) for d in range(s + 1)
-            } for i, (p, l) in enumerate(el)
+            } for p, rv in rvs
         } for s in range(M + 1)
     }
-
     bdp = BackwardDP(
         transitions_rewards=[tr_rew_dict] * T,
         terminal_opt_val={s: 0. for s in range(M + 1)},
         gamma=1.
     )
-    print(bdp.vf_and_policy[0])
+    for i in range(T):
+        print([(x, y) for x, (y, _) in bdp.vf_and_policy[i].items()])
+    for i in range(T):
+        print([(x, z) for x, (_, z) in bdp.vf_and_policy[i].items()])
+
+    tr_rew_dicts = []
+    states = {float(M)}
+    for t in range(T):
+        tr_rew_dicts.append(
+            {
+                s: {
+                    p: {
+                        max(s - d, 0.): (1.0, min(s, d) * p)
+                    } for p, d in el
+                } for s in states
+            }
+        )
+        states = {max(s - d, 0.) for s in states for _, d in el}
+
+    bdp = BackwardDP(
+        transitions_rewards=tr_rew_dicts,
+        terminal_opt_val={s: 0. for s in states},
+        gamma=1.
+    )
+
+    state = float(M)
+    for t in range(T):
+        v, p = bdp.vf_and_policy[t][state]
+        print((t, state, p, v))
+        d = el[[x for x, _ in el].index(p)][1]
+        state = max(state - d, 0.)
+    print(bdp.vf_and_policy[0].items())
 
