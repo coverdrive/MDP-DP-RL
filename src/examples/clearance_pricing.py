@@ -4,6 +4,7 @@ from typing import List, Tuple, Mapping, Any, Sequence
 from matplotlib.ticker import PercentFormatter
 from pathlib import Path
 import numpy as np
+from pprint import pprint
 import matplotlib.pyplot as plt
 
 
@@ -70,19 +71,29 @@ def get_performance(
             all_actions[i, t] = aug_el[action][0]
         all_revs[i] = rev
 
-    remaining = np.mean(all_rem, axis=0)
-    salvage = remaining[-1]
-    revenue = np.mean(all_revs)
-    a_markdown = init_inv - salvage - revenue
-    actions = np.mean(all_actions, axis=0)
+    mean_remaining = np.mean(all_rem, axis=0) /init_inv
+    mean_salvage = mean_remaining[-1]
+    mean_revenue = np.mean(all_revs) / init_inv
+    mean_a_markdown = 1. - mean_salvage - mean_revenue
+    mean_actions = np.mean(all_actions, axis=0) / init_inv
+    stdev_remaining = np.std(all_rem, axis=0) / init_inv
+    stdev_salvage = stdev_remaining[-1]
+    stdev_revenue = np.std(all_revs) / init_inv
+    stdev_a_markdown = np.sqrt(stdev_salvage ** 2 + stdev_revenue ** 2)
+    stdev_actions = np.std(all_actions, axis=0) / init_inv
 
     return {
         "Optimal VF": opt_vf,
-        "Revenue": revenue / init_inv,
-        "AMarkdown": a_markdown / init_inv,
-        "Salvage": salvage / init_inv,
-        "Remaining": [r / init_inv for r in remaining],
-        "Actions": actions
+        "Mean Revenue": mean_revenue,
+        "Mean AMarkdown": mean_a_markdown,
+        "Mean Salvage": mean_salvage,
+        "Stdev Revenue": stdev_revenue,
+        "Stdev AMarkdown": stdev_a_markdown,
+        "Stdev Salvage": stdev_salvage,
+        "Mean Remaining": mean_remaining,
+        "Mean Price Reductions": mean_actions,
+        "Stdev Remaining": stdev_remaining,
+        "Stdev Price Reductions": stdev_actions,
     }
 
 
@@ -103,9 +114,9 @@ def graph_perf(
             list(zip((0.3, 0.5, 0.7), elasticity)),
             10000
         )
-        revs.append(perf["Revenue"] * 100)
-        ams.append(perf["AMarkdown"] * 100)
-        sals.append(perf["Salvage"] * 100)
+        revs.append(perf["Mean Revenue"] * 100)
+        ams.append(perf["Mean AMarkdown"] * 100)
+        sals.append(perf["Mean Salvage"] * 100)
     plt.grid()
     plt.plot(inv, revs, "k", label="Revenue")
     plt.plot(inv, ams, "b", label="A-Markdown")
@@ -126,18 +137,18 @@ def graph_perf(
     )
     plt.legend(loc="upper right")
     file_name = str(Path.home()) + ("/wks=%d&dem=%d&el=%d-%d-%d.png" % tup)
-    print(file_name)
+    print("Created png file: " + file_name)
     plt.savefig(file_name)
     plt.close()
 
 
 if __name__ == '__main__':
-    # ts: int = 8  # time steps
-    # ii: int = 12  # initial inventory
-    # bd: float = 1.0  # base demand
-    # this_el: List[Tuple[float, float]] = [
-    #     (0.3, 0.5), (0.5, 1.1), (0.7, 1.4)
-    # ]
+    ts: int = 8  # time steps
+    ii: int = 12  # initial inventory
+    bd: float = 1.0  # base demand
+    this_el: List[Tuple[float, float]] = [
+        (0.3, 0.5), (0.5, 1.1), (0.7, 1.4)
+    ]
     # bdp = get_clearance_backward_dp(ts, ii, bd, this_el)
     #
     # for i in range(ts):
@@ -145,24 +156,24 @@ if __name__ == '__main__':
     # for i in range(ts):
     #     print([(x, z) for x, (_, z) in bdp.vf_and_policy[i].items()])
 
-    # traces = 10000
-    # per = get_performance(ts, ii, bd, this_el, traces)
-    # print(per)
+    traces = 10000
+    per = get_performance(ts, ii, bd, this_el, traces)
+    pprint(per)
 
-    ts: int = 8  # time steps
-    bd: float = 1.0  # base demand
-    invs: Sequence[int] = list(range(2, 30, 2))
-
-    elasticities = [
-        (0.1, 0.3, 0.5),
-        (0.3, 0.7, 1.0),
-        (0.5, 0.8, 1.1),
-        (0.7, 1.2, 1.5),
-        (0.8, 1.3, 1.7),
-        (1.0, 1.5, 2.0),
-        (1.0, 2.0, 2.5),
-        (1.5, 2.5, 3.5),
-        (2.0, 4.0, 6.0)
-    ]
-    for els in elasticities:
-        graph_perf(ts, bd, invs, els)
+    # ts: int = 8  # time steps
+    # bd: float = 1.0  # base demand
+    # invs: Sequence[int] = list(range(2, 30, 2))
+    #
+    # elasticities = [
+    #     (0.1, 0.3, 0.5),
+    #     (0.3, 0.7, 1.0),
+    #     (0.5, 0.8, 1.1),
+    #     (0.7, 1.2, 1.5),
+    #     (0.8, 1.3, 1.7),
+    #     (1.0, 1.5, 2.0),
+    #     (1.0, 2.0, 2.5),
+    #     (1.5, 2.5, 3.5),
+    #     (2.0, 4.0, 6.0)
+    # ]
+    # for els in elasticities:
+    #     graph_perf(ts, bd, invs, els)
