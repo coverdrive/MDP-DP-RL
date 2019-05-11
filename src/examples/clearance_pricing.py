@@ -1,6 +1,6 @@
 from scipy.stats import poisson
 from algorithms.backward_dp import BackwardDP
-from typing import List, Tuple, Mapping
+from typing import List, Tuple, Mapping, Any
 import numpy as np
 
 
@@ -41,7 +41,7 @@ def get_performance(
     base_demand: float,
     el: List[Tuple[float, float]],
     num_traces: int
-) -> Mapping[str, float]:
+) -> Mapping[str, Any]:
     vf_and_pol = get_clearance_backward_dp(
         time_steps,
         init_inv,
@@ -54,8 +54,9 @@ def get_performance(
     aug_el = [(0., 0.)] + el
     rvs = [poisson(base_demand * (1 + l)) for _, l in aug_el]
 
-    all_revs = np.zeros(num_traces)
-    all_leftovers = np.zeros(num_traces)
+    all_revs = np.empty(num_traces)
+    all_rem = np.empty((num_traces, time_steps))
+    all_actions = np.empty((num_traces, time_steps))
     for i in range(num_traces):
         rev = 0.
         state = (init_inv, 0)
@@ -63,32 +64,37 @@ def get_performance(
             action = vf_and_pol[t][state][1]
             price = base_price * (1 - aug_el[action][0])
             demand = rvs[action].rvs()
-            rev += min(state[0], demand) * price
+            rev += (min(state[0], demand) * price)
             state = (max(0, state[0] - demand), action)
+            all_rem[i, t] = state[0]
+            all_actions[i, t] = aug_el[action][0]
         all_revs[i] = rev
-        all_leftovers[i] = state[0]
 
     total_value = init_inv * base_price
-    salvage = np.mean(all_leftovers) * base_price
+    remaining = np.mean(all_rem, axis=0)
+    salvage = remaining[-1] * base_price
     revenue = np.mean(all_revs)
     a_markdown = total_value - salvage - revenue
+    actions = np.mean(all_actions, axis=0)
 
     return {
         "Optimal VF": opt_vf,
         "Total Value": total_value,
         "Revenue": revenue,
         "A Markdown": a_markdown,
-        "Salvage": salvage
+        "Salvage": salvage,
+        "Remaining": remaining,
+        "Actions": actions
     }
 
 
 if __name__ == '__main__':
-    ts: int = 6  # time steps
-    ii: int = 20  # initial inventory
+    ts: int = 1  # time steps
+    ii: int = 2  # initial inventory
     bp: float = 10.0  # base price
-    bd: float = 1.1  # base demand
+    bd: float = 1.0  # base demand
     this_el: List[Tuple[float, float]] = [
-        (0.3, 1.2), (0.5, 2.1), (0.7, 2.8)
+        (0.3, 1.0), (0.5, 2.0), (0.7, 3.0)
     ]
     # bdp = get_clearance_backward_dp(ts, ii, bp, bd, this_el)
     #
