@@ -61,7 +61,7 @@ class AdaptiveMultistageSampling(Generic[S, A]):
             #  loop num_samples[time_step] number of times (beyond the
             #  len(actions) samples that have already been done above
             for i in range(len(actions), self.num_samples[time_step]):
-                #  determine the actions that dominate on the USB Q* estimated value
+                #  determine the actions that dominate on the UCB Q* estimated value
                 #  and pick one of these dominating actions at random, call it a*
                 ucb_vals = {a: rewards[a] + self.discount * val_sums[a] / counts[a]
                             + np.sqrt(2 * np.log(i) / counts[a]) for a in actions}
