@@ -147,7 +147,8 @@ if __name__ == '__main__':
         stockout_limit=5,
         stockout_limit_excess_cost=30.
     )
-    valid = ic.validate_spec()
+    if not ic.validate_spec():
+        raise ValueError
     mdp_ref_obj = ic.get_mdp_refined()
     this_tolerance = 1e-3
     exploring_start = False
