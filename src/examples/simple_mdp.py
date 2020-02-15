@@ -19,7 +19,7 @@ def get_lily_pads_mdp(n: int) -> MDPRefined:
     data[0] = {'A': {0: (1., 0.)}, 'B': {0: (1., 0.)}}
     data[n] = {'A': {n: (1., 0.)}, 'B': {n: (1., 0.)}}
 
-    gamma = 1.
+    gamma = 1.0
     return MDPRefined(data, gamma)
 
 
@@ -39,7 +39,7 @@ def graph_q_func(a: List[Tuple[float, float]]) -> NoReturn:
     plt.ylabel("Value")
     plt.title("Optimal Action Value Function")
     plt.xlim(xmin=x_vals[0], xmax=x_vals[-1])
-    plt.ylim(ymin=0.45, ymax=0.55)
+    plt.ylim(ymin=0.6, ymax=0.8)
     plt.xticks(x_vals)
     plt.grid(True)
     plt.legend(loc='lower right')
@@ -47,7 +47,7 @@ def graph_q_func(a: List[Tuple[float, float]]) -> NoReturn:
 
 
 if __name__ == '__main__':
-    pads: int = 100
+    pads: int = 10
     mdp: MDPRefined = get_lily_pads_mdp(pads)
     pol = mdp.get_optimal_policy(1e-8)
     print(pol.policy_data)
