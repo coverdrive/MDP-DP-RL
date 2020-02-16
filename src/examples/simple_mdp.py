@@ -1,6 +1,6 @@
 from processes.mdp_refined import MDPRefined
-from processes.det_policy import DetPolicy
-from typing import List, Mapping, Tuple, NoReturn
+# from processes.det_policy import DetPolicy
+from typing import Sequence, Mapping, Tuple, NoReturn
 
 
 def get_lily_pads_mdp(n: int) -> MDPRefined:
@@ -24,13 +24,30 @@ def get_lily_pads_mdp(n: int) -> MDPRefined:
 
 
 def get_sorted_q_val(
-    q_val: Mapping[int, Mapping[int, float]]
-) -> List[Tuple[float, float]]:
+    q_val: Mapping[int, Mapping[str, float]]
+) -> Sequence[Tuple[float, float]]:
     d = sorted([(s, (t['A'], t['B'])) for s, t in q_val.items()], key=lambda x: x[0])
     return [z for _, z in d[1:-1]]
 
 
-def graph_q_func(a: List[Tuple[float, float]]) -> NoReturn:
+def direct_bellman(n: int) -> Mapping[int, float]:
+    vf = [0.5] * (n + 1)
+    vf[0] = 0.
+    vf[n] = 0.
+    tol = 1e-6
+    epsilon = tol * 1e8
+    while epsilon >= tol:
+        old_vf = [v for v in vf]
+        for i in range(1, n):
+            vf[i] = max(
+                (1. if i == n - 1 else 0.) + i * vf[i - 1] + (n - i) * vf[i + 1],
+                1. + sum(vf[j] for j in range(1, n) if j != i)
+            ) / n
+        epsilon = max(abs(old_vf[i] - v) for i, v in enumerate(vf))
+    return {v: f for v, f in enumerate(vf)}
+
+
+def graph_q_func(a: Sequence[Tuple[float, float]]) -> NoReturn:
     import matplotlib.pyplot as plt
     x_vals = range(1, len(a) + 1)
     plt.plot(x_vals, [x for x, _ in a], "r", label="Q* for Action A")
@@ -39,7 +56,7 @@ def graph_q_func(a: List[Tuple[float, float]]) -> NoReturn:
     plt.ylabel("Value")
     plt.title("Optimal Action Value Function")
     plt.xlim(xmin=x_vals[0], xmax=x_vals[-1])
-    plt.ylim(ymin=0.6, ymax=0.8)
+    plt.ylim(ymin=0.5, ymax=0.8)
     plt.xticks(x_vals)
     plt.grid(True)
     plt.legend(loc='lower right')
@@ -52,5 +69,6 @@ if __name__ == '__main__':
     pol = mdp.get_optimal_policy(1e-8)
     print(pol.policy_data)
     print(mdp.get_value_func_dict(pol))
+    print(direct_bellman(pads))
     qv = mdp.get_act_value_func_dict(pol)
     graph_q_func(get_sorted_q_val(qv))

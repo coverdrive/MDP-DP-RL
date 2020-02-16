@@ -33,7 +33,7 @@ class WageMax(NamedTuple):
         tol = 1e-4
         epsilon = tol * 1e6
         while epsilon >= tol:
-            old_vf = vf
+            old_vf = [v for v in vf]
             vf[0] = max(
                 sum(self.probs[i] * utils[i + 1] for i in range(jobs)) +
                     self.gamma * (self.alpha * vf[0] + (1 - self.alpha) *
@@ -57,7 +57,7 @@ class WageMax(NamedTuple):
 if __name__ == '__main__':
     this_probs: Sequence[float] = [0.5, 0.3, 0.2]
     this_wages: Sequence[float] = [1.0, 1.8, 2.5, 5.2]
-    this_gamma: float = 0.98
+    this_gamma: float = 0.9
     this_alpha: float = 0.2
     this_risk_aversion: float = 1.0
     wm = WageMax(
