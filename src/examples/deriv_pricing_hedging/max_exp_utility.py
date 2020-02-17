@@ -15,7 +15,7 @@ class MaxExpUtility(NamedTuple):
     and hedging using the Maximum Expected Utility method and
     assume that the Utility function is CARA (-e^{-ax}/a) where
     a is the risk-aversion parameter. We assume the underlying
-    follows a normal distribution at t-1.
+    follows a normal distribution at t=1.
     Formal Details in Appendix 4 of
     https://github.com/coverdrive/technical-documents/blob/master/finance/ArbitrageCompleteness.pdf
     """
@@ -59,6 +59,13 @@ class MaxExpUtility(NamedTuple):
         c: float,
         risk_aversion_param: float
     ) -> Mapping[str, float]:
+        """
+        This implements the closed-form solution when the derivative
+        payoff is uniformly 0
+        The input c refers to the cash one pays at t=0
+        This means the net position of underlying together with risk-free
+        asset is -c, i.e., alpha * underlying_spot + beta = -c
+        """
         ra = risk_aversion_param
         er = np.exp(self.risk_free_rate)
         mu = self.underlying_mean
@@ -144,7 +151,7 @@ if __name__ == '__main__':
         risk_free_rate=0.0,
         underlying_mean=105.,
         underlying_stdev=10.,
-        payoff_func=lambda x: np.abs(x - 100.)
+        payoff_func=lambda x: max(x-102,0)
     )
 
     if meu.validate_spec():

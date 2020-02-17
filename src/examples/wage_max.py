@@ -11,7 +11,7 @@ class WageMax(NamedTuple):
     risk_aversion: float
 
     def validate_inputs(self) -> bool:
-        b1 = sum(self.probs) == 1.
+        b1 = abs(sum(self.probs) - 1) <= 1e-8
         b2 = len(self.probs) + 1 == len(self.wages)
         b3 = all(self.wages[0] < w for w in self.wages[1:])
         b4 = 0. <= self.gamma < 1.
@@ -58,6 +58,12 @@ if __name__ == '__main__':
     this_gamma: float = 0.9
     this_alpha: float = 0.2
     this_risk_aversion: float = 1.0
+    # all_jobs = 10
+    # this_probs: Sequence[float] = [1. / all_jobs] * all_jobs
+    # this_wages: Sequence[float] = [i + 1 for i in range(all_jobs + 1)]
+    # this_gamma: float = 0.5
+    # this_alpha: float = 0.1
+    # this_risk_aversion: float = 0.5
     wm = WageMax(
         probs=this_probs,
         wages=this_wages,
