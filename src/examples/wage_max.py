@@ -30,7 +30,7 @@ class WageMax(NamedTuple):
         jobs = len(self.probs)
         utils = self.get_wages_utility()
         vf = [0.] * (jobs + 1)
-        tol = 1e-4
+        tol = 1e-6
         epsilon = tol * 1e6
         while epsilon >= tol:
             old_vf = [v for v in vf]

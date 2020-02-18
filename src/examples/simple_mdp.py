@@ -33,8 +33,8 @@ def direct_bellman(n: int) -> Mapping[int, float]:
     vf = [0.5] * (n + 1)
     vf[0] = 0.
     vf[n] = 0.
-    tol = 1e-6
-    epsilon = tol * 1e8
+    tol = 1e-8
+    epsilon = tol * 1e4
     while epsilon >= tol:
         old_vf = [v for v in vf]
         for i in range(1, n):
@@ -68,6 +68,5 @@ if __name__ == '__main__':
     pol = mdp.get_optimal_policy(1e-8)
     print(pol.policy_data)
     print(mdp.get_value_func_dict(pol))
-    print(direct_bellman(pads))
     qv = mdp.get_act_value_func_dict(pol)
     graph_q_func(get_sorted_q_val(qv))
