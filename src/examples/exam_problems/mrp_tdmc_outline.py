@@ -98,7 +98,7 @@ if __name__ == '__main__':
     srs_samps = get_state_reward_next_state_samples(given_data)
 
     pfunc, rfunc = get_probability_and_reward_functions(srs_samps)
-    print("-------------- MDP VALUE FUNCTION ----------")
+    print("-------------- MRP VALUE FUNCTION ----------")
     print(get_mrp_value_function(pfunc, rfunc))
 
     print("------------- TD VALUE FUNCTION --------------")
