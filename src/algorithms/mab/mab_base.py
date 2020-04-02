@@ -1,4 +1,4 @@
-from typing import Sequence, Callable, Tuple
+from typing import Sequence, Callable, Tuple, NoReturn
 from abc import ABC, abstractmethod
 from processes.mab_env import MabEnv
 from numpy import ndarray, mean, vstack, cumsum, full, bincount
@@ -50,5 +50,19 @@ class MABBase(ABC):
 
     def get_expected_action_counts(self) -> ndarray:
         return mean(self.get_action_counts(), axis=0)
+
+    def plot_exp_cum_regret_curve(self, best_mean) -> NoReturn:
+        import matplotlib.pyplot as plt
+        x_vals = range(1, self.time_steps + 1)
+        plt.plot(self.get_expected_cum_regret(best_mean), "b", label="Exp Cum Regret")
+        plt.xlabel("Time Steps")
+        plt.ylabel("Expected Cumulative Regret")
+        plt.title("Cumulative Regret Curve")
+        plt.xlim(xmin=x_vals[0], xmax=x_vals[-1])
+        plt.ylim(ymin=0.0)
+        # plt.xticks(x_vals)
+        plt.grid(True)
+        # plt.legend(loc='upper left')
+        plt.show()
 
 

@@ -1,4 +1,4 @@
-from typing import Sequence, Callable, Tuple, NoReturn
+from typing import Sequence, Callable, Tuple
 from processes.mab_env import MabEnv
 from algorithms.helper_funcs import get_epsilon_decay_func
 from operator import itemgetter
@@ -48,23 +48,9 @@ class EpsilonGreedy(MABBase):
             ep_actions[i] = action
         return ep_rewards, ep_actions
 
-    def plot_exp_cum_regret_curve(self, best_mean) -> NoReturn:
-        import matplotlib.pyplot as plt
-        x_vals = range(1, self.time_steps + 1)
-        plt.plot(self.get_expected_cum_regret(best_mean), "b", label="Exp Cum Regret")
-        plt.xlabel("Time Steps")
-        plt.ylabel("Expected Cumulative Regret")
-        plt.title("Cumulative Regret Curve")
-        plt.xlim(xmin=x_vals[0], xmax=x_vals[-1])
-        plt.ylim(ymin=0.0)
-        # plt.xticks(x_vals)
-        plt.grid(True)
-        # plt.legend(loc='upper left')
-        plt.show()
-
 
 if __name__ == '__main__':
-    mean_vars_data = [(9., 5.), (10., 2.), (0., 4.)]
+    mean_vars_data = [(9., 5.), (10., 2.), (0., 4.), (6., 10.), (2., 20.), (4., 1.)]
     mu_star = max(mean_vars_data, key=itemgetter(0))[0]
     steps = 200
     episodes = 1000
