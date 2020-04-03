@@ -1,4 +1,4 @@
-from typing import Sequence, Callable, Tuple
+from typing import List, Callable, Tuple
 from processes.mab_env import MabEnv
 from algorithms.helper_funcs import get_epsilon_decay_func
 from operator import itemgetter
@@ -19,6 +19,9 @@ class EpsilonGreedy(MABBase):
         count_init: int = 0,
         mean_init: float = 0.,
     ) -> None:
+        if epsilon < 0 or epsilon > 1 or epsilon_half_life <= 1 or count_init < 0:
+            raise ValueError
+
         super().__init__(
             mab=mab,
             time_steps=time_steps,
@@ -32,8 +35,8 @@ class EpsilonGreedy(MABBase):
         self.mean_init: float = mean_init
 
     def get_episode_rewards_actions(self) -> Tuple[ndarray, ndarray]:
-        counts: Sequence[int] = [self.count_init] * self.num_arms
-        means: Sequence[int] = [self.mean_init] * self.num_arms
+        counts: List[int] = [self.count_init] * self.num_arms
+        means: List[float] = [self.mean_init] * self.num_arms
         ep_rewards: ndarray = empty(self.time_steps)
         ep_actions: ndarray = empty(self.time_steps, dtype=int)
         for i in range(self.time_steps):
