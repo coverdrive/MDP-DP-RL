@@ -14,6 +14,14 @@ class MabEnv(NamedTuple):
     def get_bernoulli_mab_env(probs: Sequence[float]) -> 'MabEnv':
         return MabEnv([lambda p=p: float(np.random.binomial(1, p, 1)[0]) for p in probs])
 
+    @staticmethod
+    def get_uniform_mab_env(bounds: Sequence[Tuple[float, float]]) -> 'MabEnv':
+        return MabEnv([lambda c=c, d=d: np.random.uniform(c, d, 1)[0] for c, d in bounds])
+
+    @staticmethod
+    def get_binomial_mab_env(params: Sequence[Tuple[int, float]]) -> 'MabEnv':
+        return MabEnv([lambda n=n, p=p: np.random.binomial(n, p, 1)[0] for n, p in params])
+
 
 if __name__ == '__main__':
     mean_vars_data = [(5., 2.), (10., 3.), (0., 4.)]
