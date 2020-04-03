@@ -47,14 +47,16 @@ class UCB1(MABBase):
 
 
 if __name__ == '__main__':
-    mean_vars_data = [(9., 5.), (10., 2.), (0., 4.), (6., 10.), (2., 20.), (4., 1.)]
-    mu_star = max(mean_vars_data, key=itemgetter(0))[0]
+    binomial_count = 10
+    binomial_probs = [0.4, 0.8, 0.1, 0.5, 0.9, 0.2]
+    binomial_params = [(binomial_count, p) for p in binomial_probs]
+    mu_star = max(n * p for n, p in binomial_params)
     steps = 200
     episodes = 1000
-    this_range = 100
+    this_range = binomial_count
     this_alpha = 4.0
 
-    me = MabEnv.get_gaussian_mab_env(mean_vars_data)
+    me = MabEnv.get_binomial_mab_env(binomial_params)
     ucb1 = UCB1(
         mab=me,
         time_steps=steps,
