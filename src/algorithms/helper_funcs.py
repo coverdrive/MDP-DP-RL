@@ -151,7 +151,7 @@ def get_epsilon_decay_func(
         epsilon=epsilon,
         epsilon_half_life=epsilon_half_life
     ) -> float:
-        return epsilon * np.exp(-np.log(2) / epsilon_half_life * t)
+        return epsilon * 2 ** -(t / epsilon_half_life)
 
     return epsilon_decay
 
