@@ -55,9 +55,9 @@ class MABBase(ABC):
         import matplotlib.pyplot as plt
         x_vals = range(1, self.time_steps + 1)
         plt.plot(self.get_expected_cum_regret(best_mean), "b", label="Exp Cum Regret")
-        plt.xlabel("Time Steps")
-        plt.ylabel("Expected Cumulative Regret")
-        plt.title("Cumulative Regret Curve")
+        plt.xlabel("Time Steps", fontsize=20)
+        plt.ylabel("Expected Cumulative Regret", fontsize=20)
+        plt.title("Cumulative Regret Curve", fontsize=25)
         plt.xlim(xmin=x_vals[0], xmax=x_vals[-1])
         plt.ylim(ymin=0.0)
         # plt.xticks(x_vals)

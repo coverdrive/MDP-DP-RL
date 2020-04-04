@@ -22,8 +22,8 @@ class UCB1(MABBase):
             time_steps=time_steps,
             num_episodes=num_episodes
         )
-        self.bounds_range = bounds_range
-        self.alpha = alpha
+        self.bounds_range: float = bounds_range
+        self.alpha: float = alpha
 
     def get_episode_rewards_actions(self) -> Tuple[ndarray, ndarray]:
         ep_rewards: ndarray = empty(self.time_steps)
