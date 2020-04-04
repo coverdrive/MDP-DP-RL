@@ -29,6 +29,9 @@ class ThompsonSamplingGaussian(MABBase):
         self.beta0: float = init_stdev * init_stdev
 
     def get_episode_rewards_actions(self) -> Tuple[ndarray, ndarray]:
+        # Bayesian update based on the treatment in
+        # https://people.eecs.berkeley.edu/~jordan/courses/260-spring10/lectures/lecture5.pdf
+        # (Section 3 on page 5, where both the mean and the variance are random)
         ep_rewards: ndarray = empty(self.time_steps)
         ep_actions: ndarray = empty(self.time_steps, dtype=int)
         bayes: List[Tuple[float, int, float, float]] =\
