@@ -1,5 +1,5 @@
 from typing import Tuple, Callable, Sequence, NamedTuple
-import numpy as np
+from numpy.random import normal, binomial, uniform
 
 
 class MabEnv(NamedTuple):
@@ -8,19 +8,19 @@ class MabEnv(NamedTuple):
 
     @staticmethod
     def get_gaussian_mab_env(means_vars: Sequence[Tuple[float, float]]) -> 'MabEnv':
-        return MabEnv([lambda m=m, s=s: np.random.normal(m, s, 1)[0] for m, s in means_vars])
+        return MabEnv([lambda m=m, s=s: normal(m, s, 1)[0] for m, s in means_vars])
 
     @staticmethod
     def get_bernoulli_mab_env(probs: Sequence[float]) -> 'MabEnv':
-        return MabEnv([lambda p=p: float(np.random.binomial(1, p, 1)[0]) for p in probs])
+        return MabEnv([lambda p=p: float(binomial(1, p, 1)[0]) for p in probs])
 
     @staticmethod
     def get_uniform_mab_env(bounds: Sequence[Tuple[float, float]]) -> 'MabEnv':
-        return MabEnv([lambda c=c, d=d: np.random.uniform(c, d, 1)[0] for c, d in bounds])
+        return MabEnv([lambda c=c, d=d: uniform(c, d, 1)[0] for c, d in bounds])
 
     @staticmethod
     def get_binomial_mab_env(params: Sequence[Tuple[int, float]]) -> 'MabEnv':
-        return MabEnv([lambda n=n, p=p: np.random.binomial(n, p, 1)[0] for n, p in params])
+        return MabEnv([lambda n=n, p=p: float(binomial(n, p, 1)[0]) for n, p in params])
 
 
 if __name__ == '__main__':
