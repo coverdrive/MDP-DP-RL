@@ -15,7 +15,7 @@ class UCB1(MABBase):
         bounds_range: float,
         alpha: float
     ) -> None:
-        if bounds_range < 0 or alpha <= 1:
+        if bounds_range < 0 or alpha <= 0:
             raise ValueError
         super().__init__(
             mab=mab,
