@@ -1,4 +1,5 @@
 from typing import Mapping, Set, Generic, Sequence
+from graphviz import Digraph
 from processes.mp_funcs import get_all_states, verify_mp, get_lean_transitions
 import numpy as np
 from scipy.linalg import eig
@@ -22,6 +23,15 @@ class MP(Generic[S]):
     def get_sink_states(self) -> Set[S]:
         return {k for k, v in self.transitions.items()
                 if len(v) == 1 and k in v.keys()}
+
+    def generate_image(self):
+        d = Digraph()
+        for s in self.all_states_list:
+            d.node(str(s))
+        for s, v in self.transitions.items():
+            for s1, p in v.items():
+                d.edge(str(s), str(s1), label=str(p))
+        d.view()
 
     def get_stationary_distribution(self) -> Mapping[S, float]:
         sz = len(self.all_states_list)
@@ -51,3 +61,4 @@ if __name__ == '__main__':
     print(mp_obj.get_sink_states())
     stationary = mp_obj.get_stationary_distribution()
     print(stationary)
+    mp_obj.generate_image()
