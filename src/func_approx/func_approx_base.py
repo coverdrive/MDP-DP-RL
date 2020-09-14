@@ -26,6 +26,7 @@ class FuncApproxBase(ABC):
         self.adam = adam
         self.adam_decay1 = adam_decay1
         self.adam_decay2 = adam_decay2
+        self.time = 0
         self.params: List[np.ndarray] = self.init_params()
         self.adam_caches: Tuple[List[np.ndarray], List[np.ndarray]]\
             = self.init_adam_caches()
@@ -116,6 +117,7 @@ class FuncApproxBase(ABC):
         self,
         gradient: Sequence[np.ndarray]
     ) -> None:
+        self.time += 1
         for l in range(len(self.params)):
             g = gradient[l] + self.reglr_coeff * self.params[l]
             if self.adam:
@@ -125,6 +127,7 @@ class FuncApproxBase(ABC):
                     (1 - self.adam_decay2) * g ** 2
                 self.params[l] -= self.learning_rate * self.adam_caches[0][l] /\
                     (np.sqrt(self.adam_caches[1][l]) + very_small_pos) *\
-                    np.sqrt(1 - self.adam_decay2) / (1 - self.adam_decay1)
+                    np.sqrt(1 - self.adam_decay2 ** self.time) /\
+                    (1 - self.adam_decay1 ** self.time)
             else:
                 self.params[l] -= self.learning_rate * g
