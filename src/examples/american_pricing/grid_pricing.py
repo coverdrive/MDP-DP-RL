@@ -4,6 +4,8 @@ from scipy.interpolate import splrep, BSpline
 from scipy.stats import norm
 import numpy as np
 from src.examples.american_pricing.num_utils import get_future_price_mean_var
+# import matplotlib.pyplot as plt
+from pathlib import Path
 
 MIN_STOCK_PRICE = 1e-4
 
@@ -62,8 +64,7 @@ class GridPricing:
         For the case of lognormal == False, it should be Mean[x_{expiry}].
         :param width: represents the width of the state space grid. For the
         case of lognormal == True, it should be a multiple of
-        Stdev[log(x_{expiry})]. For the case of lognormal == True, it
-        should be a multiple of Stdev[log(x_{expiry})].
+        Stdev[log(x_{expiry})].
         :return: the price of the American option (this is the discounted
         expected payoff at time 0 at current stock price.
         """
@@ -74,11 +75,18 @@ class GridPricing:
         res = np.empty([num_dt, x_pts])
         res[-1, :] = [max(self.payoff(self.expiry, p), 0.) for p in prices]
         sample_points = 201
+
+        final = [(p, max(self.payoff(self.expiry, p), 0.)) for p in prices]
+        ex_boundary = [max(p for p, e in final if e > 0)]
+
         for i in range(num_dt - 2, -1, -1):
             t = (i + 1) * dt
             knots, coeffs, order = splrep(prices, res[i + 1, :], k=3)
             spline_func = BSpline(knots, coeffs, order)
             disc = np.exp(self.ir(t) - self.ir(t + dt))
+            stprcs = []
+            cp = []
+            ep = []
             for j in range(x_pts):
                 m, v = get_future_price_mean_var(
                     prices[j],
@@ -105,7 +113,24 @@ class GridPricing:
                     np.vectorize(integr_func)(np.linspace(low, high, sample_points)),
                     dx=(high - low) / (sample_points - 1)
                 ) / (norm_dist.cdf(high) - norm_dist.cdf(low))
+                if prices[j] < 100:
+                    stprcs.append(prices[j])
+                    cp.append(disc_exp_payoff)
+                    ep.append(max(self.payoff(t, prices[j]), 0.))
                 res[i, j] = max(self.payoff(t, prices[j]), disc_exp_payoff)
+
+            ex_boundary.append(max(p for p, c, e in zip(stprcs, cp, ep) if e > c))
+
+            # if i == int(num_dt / 10) or i == num_dt - int(num_dt / 10) \
+            #         or i == int(num_dt / 2):
+            #     # print(list(zip(stprcs, cp, ep)))
+            #     plt.title("Grid Time = %.3f" % t)
+            #     plt.plot(stprcs, cp, 'r', stprcs, ep, 'b')
+            #     plt.show()
+
+        # plt.plot([t * dt for t in range(1, num_dt + 1)], ex_boundary[::-1])
+        # plt.title("Grid Boundary")
+        # plt.savefig(str(Path.home()) + "/Downloads/GridBoundary.png")
 
         knots, coeffs, order = splrep(prices, res[0, :], k=3)
         spline_func = BSpline(knots, coeffs, order)
@@ -170,7 +195,7 @@ if __name__ == '__main__':
         ir=ir_func,
         isig=isig_func,
     )
-    num_dt_val = 10
+    num_dt_val = 100
     num_dx_val = 100
     expiry_mean, expiry_var = get_future_price_mean_var(
         spot_price_val,
