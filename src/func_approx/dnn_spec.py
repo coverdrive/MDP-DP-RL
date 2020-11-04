@@ -53,7 +53,7 @@ class DNNSpec(NamedTuple):
 
     @staticmethod
     def softplus_deriv(res: np.ndarray) -> np.ndarray:
-        return 1. + DNNSpec.fexp(-res)
+        return 1. - DNNSpec.fexp(-res)
 
     @staticmethod
     def log_squish(arg: np.ndarray) -> np.ndarray:
